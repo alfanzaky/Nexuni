@@ -57,7 +57,7 @@ func main() {
 	// Digiflazz credentials from environment
 	digiflazzURL := os.Getenv("DIGIFLAZZ_API_URL")
 	if digiflazzURL == "" {
-		digiflazzURL = "https://api.digiflazz.com" // Default to production URL
+		log.Fatal("DIGIFLAZZ_API_URL environment variable is required but not set.")
 	}
 	digiflazzUsername := os.Getenv("DIGIFLAZZ_USERNAME")
 	if digiflazzUsername == "" {
