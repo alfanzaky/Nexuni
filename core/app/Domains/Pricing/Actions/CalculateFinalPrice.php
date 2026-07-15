@@ -43,9 +43,9 @@ class CalculateFinalPrice
                             ->whereNull('category_id');
                     });
             })
-            ->orderByRaw('product_id DESC NULLS LAST')
-            ->orderByRaw('provider_id DESC NULLS LAST')
-            ->orderByRaw('category_id DESC NULLS LAST')
+            ->orderByRaw('CASE WHEN product_id IS NULL THEN 1 ELSE 0 END, product_id DESC')
+            ->orderByRaw('CASE WHEN provider_id IS NULL THEN 1 ELSE 0 END, provider_id DESC')
+            ->orderByRaw('CASE WHEN category_id IS NULL THEN 1 ELSE 0 END, category_id DESC')
             ->first();
 
         if (! $margin) {
