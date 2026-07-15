@@ -54,12 +54,22 @@ func main() {
 	}
 	digiflazzCBClient := httpclient.NewCircuitBreakerClient(digiflazzBaseClient, "digiflazz-api", digiflazzCBSettings)
 	
-	// Digiflazz URL will eventually come from env, using dummy for now to test CB
+	// Digiflazz credentials from environment
 	digiflazzURL := os.Getenv("DIGIFLAZZ_API_URL")
 	if digiflazzURL == "" {
-		digiflazzURL = "http://invalid-supplier-url"
+		digiflazzURL = "https://api.digiflazz.com" // Default to production URL
 	}
-	digiflazzRepo := digiflazz.NewRepository(digiflazzCBClient, digiflazzURL)
+	digiflazzUsername := os.Getenv("DIGIFLAZZ_USERNAME")
+	if digiflazzUsername == "" {
+		log.Println("WARNING: DIGIFLAZZ_USERNAME is not set!")
+	}
+	digiflazzAPIKey := os.Getenv("DIGIFLAZZ_API_KEY")
+	if digiflazzAPIKey == "" {
+		log.Println("WARNING: DIGIFLAZZ_API_KEY is not set!")
+	}
+	digiflazzTesting := os.Getenv("DIGIFLAZZ_TESTING") == "true"
+
+	digiflazzRepo := digiflazz.NewRepository(digiflazzCBClient, digiflazzURL, digiflazzUsername, digiflazzAPIKey, digiflazzTesting)
 	supplierRouter.Register(1, digiflazzRepo)
 	
 	// Create HTTP client with Circuit Breaker for Laravel callback

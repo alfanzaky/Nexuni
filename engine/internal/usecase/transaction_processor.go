@@ -65,7 +65,7 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 
 	if payload.Action == "check_status" {
 		log.Printf("Executing CheckStatus for %s", payload.TransactionID)
-		res, err = tp.router.CheckStatus(ctx, payload.ProviderID, payload.TransactionID)
+		res, err = tp.router.CheckStatus(ctx, payload.ProviderID, payload.TransactionID, payload.Destination, payload.ProductCode)
 	} else {
 		log.Printf("Executing Purchase for %s", payload.TransactionID)
 		res, err = tp.router.Route(ctx, payload.ProviderID, payload.TransactionID, payload.Destination, payload.ProductCode)
