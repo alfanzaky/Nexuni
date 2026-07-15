@@ -174,4 +174,12 @@ class WalletLedgerTest extends TestCase
         // Assert no new ledger was created
         $this->assertEquals($countBefore, \App\Domains\Financial\Models\WalletLedger::count());
     }
+
+    public function test_cannot_release_hold_with_insufficient_held_balance()
+    {
+        $this->expectException(\App\Domains\Financial\Exceptions\WalletInsufficientHeldBalanceException::class);
+        $this->expectExceptionMessage('Insufficient held balance.');
+
+        $this->ledgerService->releaseHoldBalance($this->wallet->id, '1000.00', 'Refund failed transaction');
+    }
 }

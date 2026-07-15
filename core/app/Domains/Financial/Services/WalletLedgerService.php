@@ -7,6 +7,7 @@ use App\Domains\Financial\Enums\LedgerType;
 use App\Domains\Financial\Enums\WalletStatus;
 use App\Domains\Financial\Exceptions\WalletInactiveException;
 use App\Domains\Financial\Exceptions\WalletInsufficientBalanceException;
+use App\Domains\Financial\Exceptions\WalletInsufficientHeldBalanceException;
 use App\Domains\Financial\Models\Wallet;
 use App\Domains\Financial\Models\WalletLedger;
 use Exception;
@@ -139,7 +140,7 @@ class WalletLedgerService
             $balanceBefore = (string) $wallet->available_balance;
 
             if (bccomp($heldBefore, $amount, 2) === -1) {
-                throw new Exception('Insufficient held balance.');
+                throw new WalletInsufficientHeldBalanceException('Insufficient held balance.');
             }
 
             // Move from held to available
@@ -187,7 +188,7 @@ class WalletLedgerService
             $heldBefore = (string) $wallet->held_balance;
 
             if (bccomp($heldBefore, $amount, 2) === -1) {
-                throw new Exception('Insufficient held balance.');
+                throw new WalletInsufficientHeldBalanceException('Insufficient held balance.');
             }
 
             // Deduct from held (money leaves system permanently)
