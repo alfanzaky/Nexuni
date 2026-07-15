@@ -46,7 +46,7 @@ class H2HAuthMiddleware
             return response()->json(['message' => 'Invalid or inactive API Key'], 401);
         }
 
-        // 4. Rate Limiting
+        // 4. Rate Limiting Check
         $rateLimitKey = "h2h_rate_limit_{$partner->id}";
         if (RateLimiter::tooManyAttempts($rateLimitKey, $partner->rate_limit)) {
             $seconds = RateLimiter::availableIn($rateLimitKey);
@@ -55,7 +55,6 @@ class H2HAuthMiddleware
                 'Retry-After' => $seconds,
             ]);
         }
-        RateLimiter::hit($rateLimitKey, 60); // Decay in 60 seconds (rate_limit requests per minute)
 
         // 5. HMAC Signature Validation
         // The signature should be: HMAC-SHA256(payload + timestamp + nonce, api_secret)
@@ -73,6 +72,11 @@ class H2HAuthMiddleware
         if (! Cache::add($nonceKey, true, now()->addMinutes(5))) {
             return response()->json(['message' => 'Replay attack detected (concurrent)'], 401);
         }
+
+        // 7. Record Rate Limit Hit
+        // Only increment the rate limiter for fully authenticated requests to prevent
+        // unauthenticated attackers from exhausting the partner's quota.
+        RateLimiter::hit($rateLimitKey, 60); // Decay in 60 seconds (rate_limit requests per minute)
 
         // Attach partner to request for controller use
         $request->attributes->set('partner', $partner);
