@@ -4,9 +4,11 @@ namespace App\Domains\Transaction\Actions;
 
 use App\Domains\Financial\Services\WalletLedgerService;
 use App\Domains\Identity\Models\User;
+use App\Domains\Product\Exceptions\ProductInactiveException;
 use App\Domains\Product\Models\Product;
 use App\Domains\Transaction\DTOs\CreateTransactionData;
 use App\Domains\Transaction\Enums\TransactionStatus;
+use App\Domains\Transaction\Events\TransactionCreatedEvent;
 use App\Domains\Transaction\Models\Transaction;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -43,14 +45,14 @@ class CreateTransaction
             $product = Product::findOrFail($data->productId);
 
             if (! $product->is_active) {
-                throw new \App\Domains\Product\Exceptions\ProductInactiveException('Cannot create transaction for an inactive product.');
+                throw new ProductInactiveException('Cannot create transaction for an inactive product.');
             }
 
             // Calculate final price
             $finalPrice = (string) $product->price;
 
             // Hold the balance (this creates the DEBIT ledger)
-            $ledger = $this->ledgerService->holdBalance($wallet->id, $finalPrice, 'Payment Hold for ' . $product->name);
+            $ledger = $this->ledgerService->holdBalance($wallet->id, $finalPrice, 'Payment Hold for '.$product->name);
 
             // Generate unique transaction ID
             $transactionId = 'TRX-'.date('YmdHis').'-'.Str::random(6);
@@ -71,8 +73,16 @@ class CreateTransaction
             $ledger->reference()->associate($transaction);
             $ledger->save();
 
-            // TODO: Dispatch Event (e.g., TransactionCreated) to RabbitMQ/Queue
-            // Event::dispatch(new TransactionCreated($transaction));
+            // Create the outbox record INSIDE this transaction — not after commit.
+            //
+            // The Outbox Pattern's atomicity guarantee requires the outbox row and the
+            // business data (wallet hold + transaction) to commit or roll back together.
+            // Since OutboxMessage is a plain DB record, it participates in the same
+            // transaction automatically — no DB::afterCommit() needed here.
+            //
+            // If this transaction rolls back (e.g., a concurrent DB constraint), the
+            // outbox row is rolled back too, so the Go Engine never receives a phantom message.
+            event(new TransactionCreatedEvent($transaction));
 
             return $transaction;
         });

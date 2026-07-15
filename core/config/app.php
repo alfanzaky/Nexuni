@@ -123,4 +123,32 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Internal API Token
+    |--------------------------------------------------------------------------
+    |
+    | This token is used to authenticate requests from internal services
+    | like the Go Transaction Engine.
+    |
+    */
+    'internal_token' => env('INTERNAL_API_TOKEN'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Internal Allowed IPs
+    |--------------------------------------------------------------------------
+    |
+    | IP addresses allowed to access internal endpoints.
+    |
+    */
+    'internal_ips' => explode(',', env('INTERNAL_ALLOWED_IPS', '127.0.0.1,::1')),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Trusted Proxies
+    |--------------------------------------------------------------------------
+    */
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
 ];

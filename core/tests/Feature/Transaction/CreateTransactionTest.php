@@ -8,6 +8,7 @@ use App\Domains\Financial\Enums\WalletStatus;
 use App\Domains\Financial\Models\Wallet;
 use App\Domains\Financial\Services\WalletLedgerService;
 use App\Domains\Identity\Models\User;
+use App\Domains\Product\Exceptions\ProductInactiveException;
 use App\Domains\Product\Models\Category;
 use App\Domains\Product\Models\Product;
 use App\Domains\Product\Models\Provider;
@@ -124,7 +125,7 @@ class CreateTransactionTest extends TestCase
     {
         $this->product->update(['is_active' => false]);
 
-        $this->expectException(\App\Domains\Product\Exceptions\ProductInactiveException::class);
+        $this->expectException(ProductInactiveException::class);
         $this->expectExceptionMessage('Cannot create transaction for an inactive product.');
 
         $action = $this->app->make(CreateTransaction::class);

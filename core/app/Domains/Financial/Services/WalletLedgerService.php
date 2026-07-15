@@ -97,7 +97,7 @@ class WalletLedgerService
             $wallet->available_balance = bcsub($balanceBefore, $amount, 2);
             $wallet->held_balance = bcadd((string) $wallet->held_balance, $amount, 2);
             $wallet->save();
-            
+
             // Create the DEBIT ledger at the exact moment the available_balance is reduced.
             // This ensures balance_before and balance_after are 100% accurate point-in-time snapshots.
             $ledger = new WalletLedger([
@@ -130,8 +130,8 @@ class WalletLedgerService
 
         return DB::transaction(function () use ($walletId, $amount, $description, $reference, $force) {
             $wallet = Wallet::where('id', $walletId)->lockForUpdate()->firstOrFail();
-            
-            if (!$force && $wallet->status !== WalletStatus::ACTIVE) {
+
+            if (! $force && $wallet->status !== WalletStatus::ACTIVE) {
                 throw new WalletInactiveException('Cannot mutate inactive wallet.');
             }
 
@@ -146,7 +146,7 @@ class WalletLedgerService
             $wallet->held_balance = bcsub($heldBefore, $amount, 2);
             $wallet->available_balance = bcadd($balanceBefore, $amount, 2);
             $wallet->save();
-            
+
             // Create a CREDIT ledger to officially document the refund of the held balance.
             $ledger = new WalletLedger([
                 'wallet_id' => $wallet->id,
@@ -178,8 +178,8 @@ class WalletLedgerService
 
         DB::transaction(function () use ($walletId, $amount, $force) {
             $wallet = Wallet::where('id', $walletId)->lockForUpdate()->firstOrFail();
-            
-            if (!$force && $wallet->status !== WalletStatus::ACTIVE) {
+
+            if (! $force && $wallet->status !== WalletStatus::ACTIVE) {
                 throw new WalletInactiveException('Cannot mutate inactive wallet.');
             }
 
@@ -193,8 +193,8 @@ class WalletLedgerService
             $wallet->held_balance = bcsub($heldBefore, $amount, 2);
             $wallet->save();
 
-            // NOTE: No ledger is created here because the available_balance was already deducted 
-            // (and the DEBIT ledger was created) during holdBalance(). Creating another ledger here 
+            // NOTE: No ledger is created here because the available_balance was already deducted
+            // (and the DEBIT ledger was created) during holdBalance(). Creating another ledger here
             // would either require fabricating balances or would break the mathematical integrity of the ledgers.
         });
     }
