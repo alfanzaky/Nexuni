@@ -41,7 +41,7 @@ func (r *Router) Route(ctx context.Context, providerID int, transactionID, desti
 }
 
 // CheckStatus verifies the final status of a PENDING transaction via the appropriate supplier.
-func (r *Router) CheckStatus(ctx context.Context, providerID int, transactionID string) (*domain.SupplierResponse, error) {
+func (r *Router) CheckStatus(ctx context.Context, providerID int, transactionID, destination, productCode string) (*domain.SupplierResponse, error) {
 	repo, exists := r.repositories[providerID]
 	if !exists {
 		log.Printf("[Router] Unsupported provider ID for status check: %d", providerID)
@@ -49,5 +49,5 @@ func (r *Router) CheckStatus(ctx context.Context, providerID int, transactionID 
 	}
 
 	log.Printf("[Router] Checking status for transaction %s for provider %d", transactionID, providerID)
-	return repo.CheckStatus(ctx, transactionID)
+	return repo.CheckStatus(ctx, transactionID, destination, productCode)
 }

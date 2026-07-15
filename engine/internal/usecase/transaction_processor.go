@@ -47,6 +47,11 @@ func (e *TransientError) Error() string {
 	return e.Err.Error()
 }
 
+// Unwrap returns the underlying error, allowing errors.Is and errors.As to work.
+func (e *TransientError) Unwrap() error {
+	return e.Err
+}
+
 func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	var payload transaction.Payload
 	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
@@ -65,7 +70,7 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 
 	if payload.Action == "check_status" {
 		log.Printf("Executing CheckStatus for %s", payload.TransactionID)
-		res, err = tp.router.CheckStatus(ctx, payload.ProviderID, payload.TransactionID)
+		res, err = tp.router.CheckStatus(ctx, payload.ProviderID, payload.TransactionID, payload.Destination, payload.ProductCode)
 	} else {
 		log.Printf("Executing Purchase for %s", payload.TransactionID)
 		res, err = tp.router.Route(ctx, payload.ProviderID, payload.TransactionID, payload.Destination, payload.ProductCode)
@@ -73,14 +78,16 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	
 	if err != nil {
 		if errors.Is(err, supplier.ErrUnsupportedProvider) {
-			log.Printf("Transaction %s failed due to permanent error: %v", payload.TransactionID, err)
-			return err // Return plain error so consumer sends it to DLQ
+			// This is a permanent error.
+			return err
 		}
-
-		log.Printf("Transaction %s failed at supplier due to infrastructure/network error: %v", payload.TransactionID, err)
+		var permErr *domainSupplier.PermanentError
+		if errors.As(err, &permErr) {
+			// This is a permanent error (e.g. 4xx from supplier).
+			return err
+		}
 		// Return TransientError so the message is requeued and retried later.
-		// We do NOT want to send a FAILED callback for transient network issues or Open Circuit Breakers,
-		// as that would permanently release the user's funds when the transaction might actually succeed later.
+		log.Printf("Supplier error for transaction %s: %v", payload.TransactionID, err)
 		return &TransientError{Err: fmt.Errorf("supplier transient error: %w", err)}
 	}
 
@@ -113,13 +120,12 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	log.Printf("Sending callback to %s", cbURL)
 	_, statusCode, cbErr := tp.callbackClient.DoRequest(ctx, "POST", cbURL, headers, cbBytes)
 	if cbErr != nil {
-		log.Printf("Failed to send callback to Laravel: %v", cbErr)
-		return &TransientError{Err: cbErr} // Network error is transient
-	}
-
-	if statusCode >= 500 {
-		log.Printf("Laravel returned server error status %d for callback", statusCode)
-		return &TransientError{Err: fmt.Errorf("laravel callback returned transient %d", statusCode)}
+		if errors.Is(cbErr, httpclient.ErrServerStatus) {
+			log.Printf("Laravel returned server error (5xx) for callback: %v", cbErr)
+		} else {
+			log.Printf("Failed to send callback to Laravel (network/circuit-breaker error): %v", cbErr)
+		}
+		return &TransientError{Err: cbErr} // Both 5xx and network errors are transient
 	}
 
 	if statusCode >= 400 {

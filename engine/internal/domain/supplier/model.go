@@ -22,5 +22,5 @@ type Repository interface {
 	Purchase(ctx context.Context, transactionID, destination, productCode string) (*SupplierResponse, error)
 
 	// CheckStatus verifies the final status of a PENDING transaction.
-	CheckStatus(ctx context.Context, transactionID string) (*SupplierResponse, error)
+	CheckStatus(ctx context.Context, transactionID, destination, productCode string) (*SupplierResponse, error)
 }
