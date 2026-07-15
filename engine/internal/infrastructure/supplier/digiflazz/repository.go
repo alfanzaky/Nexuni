@@ -116,7 +116,14 @@ func (r *digiflazzRepository) Purchase(ctx context.Context, transactionID, desti
 
 // CheckStatus verifies the final status of a PENDING transaction.
 func (r *digiflazzRepository) CheckStatus(ctx context.Context, transactionID, destination, productCode string) (*domain.SupplierResponse, error) {
-	// Digiflazz uses the exact same endpoint and payload for checking status.
+	// WARNING: Digiflazz uses the exact same endpoint and payload for checking status.
 	// If the ref_id already exists in their system, they return the current status.
+	// If the ref_id does NOT exist, they will process it as a NEW purchase.
+	// 
+	// In Nexuni's architecture, this is safe because `check_status` is only 
+	// dispatched by Laravel's PollPendingTransactions command for transactions 
+	// that are already marked PENDING (meaning the original Purchase succeeded).
+	// Network failures during initial Purchase return TransientError, causing the 
+	// message to be requeued with action="purchase", never "check_status".
 	return r.Purchase(ctx, transactionID, destination, productCode)
 }
