@@ -134,4 +134,14 @@ return [
     */
     'internal_token' => env('INTERNAL_API_TOKEN', 'fallback-token-for-dev'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Internal Allowed IPs
+    |--------------------------------------------------------------------------
+    |
+    | IP addresses allowed to access internal endpoints.
+    |
+    */
+    'internal_ips' => explode(',', env('INTERNAL_ALLOWED_IPS', '127.0.0.1,::1')),
+
 ];
