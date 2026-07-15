@@ -7,6 +7,7 @@ use App\Domains\Deposit\Actions\RequestDeposit;
 use App\Domains\Deposit\DTOs\ApproveDepositData;
 use App\Domains\Deposit\DTOs\RequestDepositData;
 use App\Domains\Deposit\Enums\DepositStatus;
+use App\Domains\Deposit\Exceptions\InvalidDepositStateException;
 use App\Domains\Financial\Enums\LedgerType;
 use App\Domains\Financial\Enums\WalletStatus;
 use App\Domains\Financial\Models\Wallet;
@@ -88,5 +89,29 @@ class DepositTest extends TestCase
             'reference_type' => get_class($deposit),
             'reference_id' => $deposit->id,
         ]);
+    }
+
+    public function test_cannot_approve_non_pending_deposit()
+    {
+        $requestAction = $this->app->make(RequestDeposit::class);
+        $deposit = $requestAction->execute(new RequestDepositData(
+            userId: $this->user->id,
+            amount: '500000.00'
+        ));
+
+        $approveAction = $this->app->make(ApproveDeposit::class);
+        $approveAction->execute(new ApproveDepositData(
+            depositId: $deposit->id,
+            approvedByUserId: $this->admin->id
+        ));
+
+        $this->expectException(InvalidDepositStateException::class);
+        $this->expectExceptionMessage('Only pending deposits can be approved.');
+
+        // Attempt to approve again
+        $approveAction->execute(new ApproveDepositData(
+            depositId: $deposit->id,
+            approvedByUserId: $this->admin->id
+        ));
     }
 }
