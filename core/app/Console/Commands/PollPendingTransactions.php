@@ -36,6 +36,16 @@ class PollPendingTransactions extends Command
         $this->info("Found {$pendingTransactions->count()} pending transaction(s) to poll.");
 
         foreach ($pendingTransactions as $transaction) {
+            // Prevent duplicate polling messages if one is already queued or being published
+            $existing = OutboxMessage::where('event_type', 'transaction.check_status')
+                ->whereJsonContains('payload->transaction_id', $transaction->transaction_id)
+                ->whereIn('status', ['pending', 'publishing'])
+                ->exists();
+
+            if ($existing) {
+                continue;
+            }
+
             OutboxMessage::create([
                 'event_type' => 'transaction.check_status',
                 'payload' => [
