@@ -17,9 +17,9 @@ class InternalCallbackController extends Controller
 
     public function handle(Request $request): JsonResponse
     {
-        // Simple authentication via pre-shared key for internal calls
+        // Authentication via pre-shared key for internal calls
         $token = $request->header('X-Internal-Token');
-        if ($token !== 'secret-token-123') { // In production, use config('app.internal_token')
+        if ($token !== config('app.internal_token')) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 

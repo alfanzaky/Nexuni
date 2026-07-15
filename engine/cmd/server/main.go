@@ -32,6 +32,12 @@ func main() {
 		laravelInternalURL = "http://localhost:8000"
 	}
 
+	internalAPIToken := os.Getenv("INTERNAL_API_TOKEN")
+	if internalAPIToken == "" {
+		log.Println("WARNING: INTERNAL_API_TOKEN is not set. Using fallback token for development.")
+		internalAPIToken = "fallback-token-for-dev"
+	}
+
 	supplierRouter := supplier.NewRouter()
 	
 	// Create HTTP client with Circuit Breaker for Laravel callback
@@ -44,7 +50,7 @@ func main() {
 	}
 	callbackClient := httpclient.NewCircuitBreakerClient(baseClient, "laravel-callback", cbSettings)
 
-	processor := usecase.NewTransactionProcessor(supplierRouter, callbackClient, laravelInternalURL)
+	processor := usecase.NewTransactionProcessor(supplierRouter, callbackClient, laravelInternalURL, internalAPIToken)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

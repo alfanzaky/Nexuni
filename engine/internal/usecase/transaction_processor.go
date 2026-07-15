@@ -16,13 +16,15 @@ type TransactionProcessor struct {
 	router         *supplier.Router
 	callbackClient httpclient.Client
 	laravelURL     string
+	internalToken  string
 }
 
-func NewTransactionProcessor(router *supplier.Router, callbackClient httpclient.Client, laravelURL string) *TransactionProcessor {
+func NewTransactionProcessor(router *supplier.Router, callbackClient httpclient.Client, laravelURL string, internalToken string) *TransactionProcessor {
 	return &TransactionProcessor{
 		router:         router,
 		callbackClient: callbackClient,
 		laravelURL:     laravelURL,
+		internalToken:  internalToken,
 	}
 }
 
@@ -76,8 +78,8 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	headers := map[string]string{
 		"Content-Type": "application/json",
 		"Accept":       "application/json",
-		// In production, add a secret header here to authenticate internal requests
-		"X-Internal-Token": "secret-token-123", 
+		// Use environment-configured token to authenticate internal requests
+		"X-Internal-Token": tp.internalToken,
 	}
 
 	log.Printf("Sending callback to %s", cbURL)

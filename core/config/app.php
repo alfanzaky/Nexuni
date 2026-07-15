@@ -123,4 +123,15 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Internal API Token
+    |--------------------------------------------------------------------------
+    |
+    | This token is used to authenticate requests from internal services
+    | like the Go Transaction Engine.
+    |
+    */
+    'internal_token' => env('INTERNAL_API_TOKEN', 'fallback-token-for-dev'),
+
 ];
