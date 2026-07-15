@@ -73,11 +73,16 @@ class CreateTransaction
             $ledger->reference()->associate($transaction);
             $ledger->save();
 
-            // Dispatch Event AFTER the DB commit to prevent phantom messages.
-            // If the commit fails, this callback is never invoked and no message is published.
-            DB::afterCommit(function () use ($transaction) {
-                event(new TransactionCreatedEvent($transaction));
-            });
+            // Create the outbox record INSIDE this transaction — not after commit.
+            //
+            // The Outbox Pattern's atomicity guarantee requires the outbox row and the
+            // business data (wallet hold + transaction) to commit or roll back together.
+            // Since OutboxMessage is a plain DB record, it participates in the same
+            // transaction automatically — no DB::afterCommit() needed here.
+            //
+            // If this transaction rolls back (e.g., a concurrent DB constraint), the
+            // outbox row is rolled back too, so the Go Engine never receives a phantom message.
+            event(new TransactionCreatedEvent($transaction));
 
             return $transaction;
         });

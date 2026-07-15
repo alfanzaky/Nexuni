@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use PhpAmqpLib\Message\AMQPMessage;
+use PhpAmqpLib\Wire\AMQPTable;
 
 class PublishOutboxMessages extends Command
 {
@@ -51,7 +52,18 @@ class PublishOutboxMessages extends Command
                 try {
                     $channel = $this->publisher->getChannel();
                     $queue = config('rabbitmq.queues.transaction');
-                    $channel->queue_declare($queue, false, true, false, false);
+
+                    // Declare queue with DLX args — must match the Go consumer's declaration.
+                    // Without consistent args, RabbitMQ will reject the passive declare.
+                    $channel->queue_declare(
+                        $queue,
+                        false,         // passive
+                        true,          // durable
+                        false,         // exclusive
+                        false,         // auto_delete
+                        false,         // nowait
+                        new AMQPTable(['x-dead-letter-exchange' => $queue.'.dlx'])
+                    );
 
                     $msg = new AMQPMessage(
                         json_encode($locked->payload),

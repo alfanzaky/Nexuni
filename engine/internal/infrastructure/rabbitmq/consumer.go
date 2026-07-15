@@ -34,17 +34,43 @@ func NewConsumer(amqpURI string, processor *usecase.TransactionProcessor) (*Cons
 }
 
 func (c *Consumer) Start(queueName string) error {
-	// Ensure queue exists
-	_, err := c.channel.QueueDeclare(
+	dlxName := queueName + ".dlx"
+	dlqName := queueName + ".dead"
+
+	// Declare Dead Letter Exchange (DLX)
+	err := c.channel.ExchangeDeclare(
+		dlxName,  // name
+		"direct", // type
+		true,     // durable
+		false,    // auto-deleted
+		false,    // internal
+		false,    // no-wait
+		nil,      // arguments
+	)
+	if err != nil {
+		return fmt.Errorf("failed to declare DLX %q: %w", dlxName, err)
+	}
+
+	// Declare Dead Letter Queue (DLQ) and bind it to the DLX
+	_, err = c.channel.QueueDeclare(dlqName, true, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("failed to declare DLQ %q: %w", dlqName, err)
+	}
+	if err = c.channel.QueueBind(dlqName, queueName, dlxName, false, nil); err != nil {
+		return fmt.Errorf("failed to bind DLQ to DLX: %w", err)
+	}
+
+	// Declare the main queue, pointing failed messages to the DLX
+	_, err = c.channel.QueueDeclare(
 		queueName,
 		true,  // durable
 		false, // delete when unused
 		false, // exclusive
 		false, // no-wait
-		nil,   // arguments
+		amqp.Table{"x-dead-letter-exchange": dlxName},
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to declare main queue %q: %w", queueName, err)
 	}
 
 	msgs, err := c.channel.Consume(
