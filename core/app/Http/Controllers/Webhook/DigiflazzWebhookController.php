@@ -32,7 +32,6 @@ class DigiflazzWebhookController extends Controller
 
         if (!hash_equals('sha1='.$signature, $hubSignature)) {
             Log::warning('Digiflazz webhook received with invalid signature.', [
-                'expected' => 'sha1='.$signature,
                 'received' => $hubSignature,
             ]);
 
