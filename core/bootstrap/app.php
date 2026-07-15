@@ -14,7 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $proxies = env('TRUSTED_PROXIES');
-        if ($proxies && $proxies !== '*') {
+        if ($proxies === '*') {
+            $middleware->trustProxies(at: '*');
+        } elseif ($proxies) {
             $middleware->trustProxies(at: explode(',', $proxies));
         }
     })
