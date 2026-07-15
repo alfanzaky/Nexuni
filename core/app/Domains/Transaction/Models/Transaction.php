@@ -23,6 +23,7 @@ class Transaction extends Model
         'supplier_id',
         'idempotency_key',
         'sn',
+        'message',
     ];
 
     protected $casts = [

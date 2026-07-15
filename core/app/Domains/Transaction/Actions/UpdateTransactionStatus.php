@@ -19,7 +19,7 @@ class UpdateTransactionStatus
      */
     public function execute(string $transactionId, TransactionStatus $status, string $message = '', string $sn = ''): Transaction
     {
-        return DB::transaction(function () use ($transactionId, $status, $sn) {
+        return DB::transaction(function () use ($transactionId, $status, $sn, $message) {
             // Lock the transaction row
             $transaction = Transaction::where('transaction_id', $transactionId)->lockForUpdate()->firstOrFail();
 
@@ -31,19 +31,25 @@ class UpdateTransactionStatus
             // Update transaction details
             $transaction->status = $status;
             $transaction->sn = $sn ?: null;
+            $transaction->message = $message ?: null;
             $transaction->save();
 
             // Handle wallet balances via WalletLedgerService based on business rules
             if ($status === TransactionStatus::SUCCESS) {
                 // Money is permanently taken
-                $this->ledgerService->captureHoldBalance($transaction->wallet_id ?? $transaction->user->wallet->id, (string) $transaction->amount);
+                $this->ledgerService->captureHoldBalance(
+                    $transaction->wallet_id ?? $transaction->user->wallet->id,
+                    (string) $transaction->amount,
+                    force: true
+                );
             } elseif ($status === TransactionStatus::FAILED) {
                 // Money is returned to available balance
                 $this->ledgerService->releaseHoldBalance(
                     $transaction->wallet_id ?? $transaction->user->wallet->id,
                     (string) $transaction->amount,
                     "Refund for failed transaction {$transactionId}",
-                    $transaction
+                    $transaction,
+                    force: true
                 );
             }
 
