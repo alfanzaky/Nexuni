@@ -65,11 +65,26 @@ class PublishOutboxMessages extends Command
                         new AMQPTable(['x-dead-letter-exchange' => $queue.'.dlx'])
                     );
 
+                    // Enable Publisher Confirms
+                    $channel->confirm_select();
+                    
+                    $nacked = false;
+                    $channel->set_nack_handler(function (\PhpAmqpLib\Message\AMQPMessage $message) use (&$nacked) {
+                        $nacked = true;
+                    });
+
                     $msg = new AMQPMessage(
                         json_encode($locked->payload),
                         ['delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT]
                     );
                     $channel->basic_publish($msg, '', $queue);
+
+                    // Wait up to 5 seconds for the broker to acknowledge persistence
+                    $channel->wait_for_pending_acks(5.0);
+                    
+                    if ($nacked) {
+                        throw new \Exception('RabbitMQ broker NACKed the message (delivery failed)');
+                    }
 
                     $locked->update([
                         'status' => 'sent',
