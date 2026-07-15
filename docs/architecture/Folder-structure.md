@@ -122,6 +122,8 @@ app/
 
     ├── Transaction/
 
+    ├── Deposit/
+
     ├── Supplier/
 
     ├── Commission/
