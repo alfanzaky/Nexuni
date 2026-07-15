@@ -35,12 +35,12 @@ class H2HAuthMiddleware
 
         // 2. Nonce Validation (Replay Attack Prevention)
         $nonceKey = "h2h_nonce_{$apiKey}_{$nonce}";
-        if (Cache::has($nonceKey)) {
+        
+        // Use atomic Cache::add() which returns true only if the key didn't exist and was inserted.
+        // This prevents race conditions where concurrent requests pass has() before put().
+        if (! Cache::add($nonceKey, true, now()->addMinutes(5))) {
             return response()->json(['message' => 'Replay attack detected'], 401);
         }
-
-        // Cache the nonce for 5 minutes (matching the timestamp window)
-        Cache::put($nonceKey, true, now()->addMinutes(5));
 
         // 3. API Key Validation
         $partner = Partner::where('api_key', $apiKey)->where('is_active', true)->first();
