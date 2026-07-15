@@ -4,9 +4,11 @@ namespace App\Domains\Transaction\Actions;
 
 use App\Domains\Financial\Services\WalletLedgerService;
 use App\Domains\Identity\Models\User;
+use App\Domains\Product\Exceptions\ProductInactiveException;
 use App\Domains\Product\Models\Product;
 use App\Domains\Transaction\DTOs\CreateTransactionData;
 use App\Domains\Transaction\Enums\TransactionStatus;
+use App\Domains\Transaction\Events\TransactionCreatedEvent;
 use App\Domains\Transaction\Models\Transaction;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -43,14 +45,14 @@ class CreateTransaction
             $product = Product::findOrFail($data->productId);
 
             if (! $product->is_active) {
-                throw new \App\Domains\Product\Exceptions\ProductInactiveException('Cannot create transaction for an inactive product.');
+                throw new ProductInactiveException('Cannot create transaction for an inactive product.');
             }
 
             // Calculate final price
             $finalPrice = (string) $product->price;
 
             // Hold the balance (this creates the DEBIT ledger)
-            $ledger = $this->ledgerService->holdBalance($wallet->id, $finalPrice, 'Payment Hold for ' . $product->name);
+            $ledger = $this->ledgerService->holdBalance($wallet->id, $finalPrice, 'Payment Hold for '.$product->name);
 
             // Generate unique transaction ID
             $transactionId = 'TRX-'.date('YmdHis').'-'.Str::random(6);
@@ -72,7 +74,7 @@ class CreateTransaction
             $ledger->save();
 
             // Dispatch Event to RabbitMQ
-            event(new \App\Domains\Transaction\Events\TransactionCreatedEvent($transaction));
+            event(new TransactionCreatedEvent($transaction));
 
             return $transaction;
         });

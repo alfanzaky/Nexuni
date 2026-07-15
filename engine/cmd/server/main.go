@@ -15,10 +15,13 @@ func main() {
 
 	amqpURI := os.Getenv("RABBITMQ_URI")
 	if amqpURI == "" {
-		amqpURI = "amqp://user:password@localhost:5672/"
+		log.Fatal("RABBITMQ_URI environment variable is required but not set. Refusing to start with default credentials.")
 	}
 
-	queueName := "transaction_queue"
+	queueName := os.Getenv("RABBITMQ_TRANSACTION_QUEUE")
+	if queueName == "" {
+		queueName = "transaction_queue"
+	}
 
 	processor := usecase.NewTransactionProcessor()
 	consumer, err := rabbitmq.NewConsumer(amqpURI, processor)

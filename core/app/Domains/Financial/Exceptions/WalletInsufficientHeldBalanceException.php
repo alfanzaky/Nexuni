@@ -4,6 +4,4 @@ namespace App\Domains\Financial\Exceptions;
 
 use Exception;
 
-class WalletInsufficientHeldBalanceException extends Exception
-{
-}
+class WalletInsufficientHeldBalanceException extends Exception {}
