@@ -67,9 +67,13 @@ class DigiflazzWebhookController extends Controller
         }
 
         try {
-            $this->updateTransactionStatusAction->execute($transactionId, $status, $message, $sn);
+            $transaction = $this->updateTransactionStatusAction->execute($transactionId, $status, $message, $sn);
 
-            Log::info("Digiflazz webhook processed successfully for transaction {$transactionId}. New status: {$status->value}");
+            if ($transaction->wasChanged()) {
+                Log::info("Digiflazz webhook processed successfully for transaction {$transactionId}. New status: {$status->value}");
+            } else {
+                Log::info("Digiflazz webhook received duplicate delivery for already finalized transaction {$transactionId}. Ignored.");
+            }
 
             return response()->json(['message' => 'Webhook processed successfully'], 200);
         } catch (Exception $e) {
