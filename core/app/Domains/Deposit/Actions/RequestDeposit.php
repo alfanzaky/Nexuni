@@ -10,7 +10,7 @@ class RequestDeposit
 {
     public function execute(RequestDepositData $data): Deposit
     {
-        if ($data->amount <= 0) {
+        if (bccomp($data->amount, '0', 2) <= 0) {
             throw new InvalidArgumentException('Deposit amount must be greater than zero.');
         }
 
