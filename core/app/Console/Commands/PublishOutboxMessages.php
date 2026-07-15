@@ -25,6 +25,16 @@ class PublishOutboxMessages extends Command
 
     public function handle(): int
     {
+        // Cleanup: Revert messages stuck in 'publishing' state for more than 5 minutes
+        // This recovers messages if the process crashes between Phase 1 and Phase 3
+        $stuckCount = OutboxMessage::where('status', 'publishing')
+            ->where('updated_at', '<', now()->subMinutes(5))
+            ->update(['status' => 'pending']);
+
+        if ($stuckCount > 0) {
+            $this->warn("Reverted {$stuckCount} stuck outbox message(s) from 'publishing' to 'pending'.");
+        }
+
         $pending = OutboxMessage::where('status', 'pending')
             ->where('failed_attempts', '<', self::MAX_FAILED_ATTEMPTS)
             ->orderBy('created_at')
