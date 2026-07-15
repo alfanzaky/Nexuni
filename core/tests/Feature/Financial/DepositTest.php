@@ -42,7 +42,7 @@ class DepositTest extends TestCase
         $action = $this->app->make(RequestDeposit::class);
         $data = new RequestDepositData(
             userId: $this->user->id,
-            amount: 500000.00,
+            amount: '500000.00',
             paymentMethod: 'Bank Transfer'
         );
 
@@ -62,7 +62,7 @@ class DepositTest extends TestCase
         $requestAction = $this->app->make(RequestDeposit::class);
         $deposit = $requestAction->execute(new RequestDepositData(
             userId: $this->user->id,
-            amount: 500000.00
+            amount: '500000.00'
         ));
 
         $this->assertEquals(0, $this->wallet->fresh()->available_balance);

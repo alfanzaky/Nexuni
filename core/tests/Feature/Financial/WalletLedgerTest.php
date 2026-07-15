@@ -5,10 +5,10 @@ namespace Tests\Feature\Financial;
 use App\Domains\Financial\DTOs\MutateWalletData;
 use App\Domains\Financial\Enums\LedgerType;
 use App\Domains\Financial\Enums\WalletStatus;
+use App\Domains\Financial\Exceptions\WalletInsufficientBalanceException;
 use App\Domains\Financial\Models\Wallet;
 use App\Domains\Financial\Services\WalletLedgerService;
 use App\Domains\Identity\Models\User;
-use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -88,7 +88,7 @@ class WalletLedgerTest extends TestCase
 
     public function test_cannot_debit_with_insufficient_balance()
     {
-        $this->expectException(Exception::class);
+        $this->expectException(WalletInsufficientBalanceException::class);
         $this->expectExceptionMessage('Insufficient balance.');
 
         $this->ledgerService->mutate(new MutateWalletData(

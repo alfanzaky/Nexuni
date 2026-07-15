@@ -27,7 +27,7 @@ class ApproveDeposit
             $deposit = Deposit::lockForUpdate()->findOrFail($data->depositId);
 
             if ($deposit->status !== DepositStatus::PENDING) {
-                throw new Exception('Only pending deposits can be approved.');
+                throw new InvalidDepositStateException('Only pending deposits can be approved.');
             }
 
             $deposit->status = DepositStatus::APPROVED;

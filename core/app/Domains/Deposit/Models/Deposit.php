@@ -14,7 +14,6 @@ class Deposit extends Model
         'amount',
         'status',
         'payment_method',
-        'approved_by_user_id',
     ];
 
     protected function casts(): array
