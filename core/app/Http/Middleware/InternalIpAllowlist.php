@@ -16,6 +16,12 @@ class InternalIpAllowlist
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Prevent IP spoofing via X-Forwarded-For if wildcard proxies are enabled
+        if (env('TRUSTED_PROXIES') === '*') {
+            Log::critical('InternalIpAllowlist is fundamentally bypassed because TRUSTED_PROXIES=* is configured. Please specify exact proxy IPs.');
+            return response()->json(['error' => 'Insecure Server Configuration'], 500);
+        }
+
         $allowedIps = config('app.internal_ips', []);
 
         if (! in_array($request->ip(), $allowedIps)) {
