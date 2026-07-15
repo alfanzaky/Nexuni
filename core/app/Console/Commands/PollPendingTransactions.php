@@ -25,42 +25,44 @@ class PollPendingTransactions extends Command
     {
         $cutoff = now()->subMinute();
 
-        $pendingTransactions = Transaction::where('status', TransactionStatus::PENDING)
-            ->where('created_at', '<=', $cutoff)
-            ->get();
+        $query = Transaction::where('status', TransactionStatus::PENDING)
+            ->where('created_at', '<=', $cutoff);
 
-        if ($pendingTransactions->isEmpty()) {
+        $count = $query->count();
+        if ($count === 0) {
             return;
         }
 
-        $this->info("Found {$pendingTransactions->count()} pending transaction(s) to poll.");
+        $this->info("Found {$count} pending transaction(s) to poll.");
 
-        foreach ($pendingTransactions as $transaction) {
-            // Prevent duplicate polling messages if one is already queued or being published
-            $existing = OutboxMessage::where('event_type', 'transaction.check_status')
-                ->whereJsonContains('payload->transaction_id', $transaction->transaction_id)
-                ->whereIn('status', ['pending', 'publishing'])
-                ->exists();
+        $query->chunk(100, function ($pendingTransactions) {
+            foreach ($pendingTransactions as $transaction) {
+                // Prevent duplicate polling messages if one is already queued or being published
+                $existing = OutboxMessage::where('event_type', 'transaction.check_status')
+                    ->whereJsonContains('payload->transaction_id', $transaction->transaction_id)
+                    ->whereIn('status', ['pending', 'publishing'])
+                    ->exists();
 
-            if ($existing) {
-                continue;
+                if ($existing) {
+                    continue;
+                }
+
+                OutboxMessage::create([
+                    'event_type' => 'transaction.check_status',
+                    'payload' => [
+                        'action' => 'check_status',
+                        'transaction_id' => $transaction->transaction_id,
+                        'product_id' => $transaction->product_id,
+                        'provider_id' => $transaction->provider_id,
+                        'destination' => $transaction->destination,
+                        'amount' => (string) $transaction->amount,
+                        'idempotency_key' => $transaction->idempotency_key,
+                        'timestamp' => now()->toIso8601String(),
+                    ],
+                    'status' => 'pending',
+                ]);
+                $this->info("Queued status check for transaction: {$transaction->transaction_id}");
             }
-
-            OutboxMessage::create([
-                'event_type' => 'transaction.check_status',
-                'payload' => [
-                    'action' => 'check_status',
-                    'transaction_id' => $transaction->transaction_id,
-                    'product_id' => $transaction->product_id,
-                    'provider_id' => $transaction->provider_id,
-                    'destination' => $transaction->destination,
-                    'amount' => (string) $transaction->amount,
-                    'idempotency_key' => $transaction->idempotency_key,
-                    'timestamp' => now()->toIso8601String(),
-                ],
-                'status' => 'pending',
-            ]);
-            $this->info("Queued status check for transaction: {$transaction->transaction_id}");
-        }
+        });
     }
 }
