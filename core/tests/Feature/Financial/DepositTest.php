@@ -72,6 +72,7 @@ class DepositTest extends TestCase
 
         // Assert deposit is approved
         $this->assertEquals('approved', $deposit->fresh()->status);
+        $this->assertEquals($this->admin->id, $deposit->fresh()->approved_by_user_id);
 
         // Assert wallet is updated
         $this->assertEquals(500000.00, $this->wallet->fresh()->available_balance);

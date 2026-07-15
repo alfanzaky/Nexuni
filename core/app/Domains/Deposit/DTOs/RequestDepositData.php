@@ -6,7 +6,7 @@ readonly class RequestDepositData
 {
     public function __construct(
         public int $userId,
-        public float $amount,
+        public string $amount,
         public ?string $paymentMethod = null
     ) {}
 }

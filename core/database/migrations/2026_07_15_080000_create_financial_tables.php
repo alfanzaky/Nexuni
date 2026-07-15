@@ -41,6 +41,7 @@ return new class extends Migration
             $table->decimal('amount', 20, 2);
             $table->string('status')->default('pending'); // pending, approved, rejected
             $table->string('payment_method')->nullable();
+            $table->foreignId('approved_by_user_id')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamps();
         });
     }

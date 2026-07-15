@@ -13,6 +13,7 @@ class Deposit extends Model
         'amount',
         'status',
         'payment_method',
+        'approved_by_user_id',
     ];
 
     public function user(): BelongsTo

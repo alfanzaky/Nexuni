@@ -9,7 +9,7 @@ readonly class MutateWalletData
     public function __construct(
         public int $walletId,
         public string $type, // 'credit' or 'debit'
-        public float $amount,
+        public string $amount,
         public string $description,
         public ?Model $reference = null
     ) {}

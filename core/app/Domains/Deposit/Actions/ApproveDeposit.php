@@ -29,6 +29,7 @@ class ApproveDeposit
             }
 
             $deposit->status = 'approved';
+            $deposit->approved_by_user_id = $data->approvedByUserId;
             $deposit->save();
 
             $wallet = Wallet::where('user_id', $deposit->user_id)->firstOrFail();

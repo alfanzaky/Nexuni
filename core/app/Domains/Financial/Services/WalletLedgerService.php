@@ -18,7 +18,7 @@ class WalletLedgerService
      */
     public function mutate(MutateWalletData $data): WalletLedger
     {
-        if ($data->amount <= 0) {
+        if (bccomp($data->amount, '0', 2) <= 0) {
             throw new InvalidArgumentException('Mutation amount must be greater than zero.');
         }
 
@@ -34,15 +34,15 @@ class WalletLedgerService
                 throw new Exception('Cannot mutate inactive wallet.');
             }
 
-            $balanceBefore = $wallet->available_balance;
+            $balanceBefore = (string) $wallet->available_balance;
 
             if ($data->type === 'debit') {
-                if ($balanceBefore < $data->amount) {
+                if (bccomp($balanceBefore, $data->amount, 2) === -1) {
                     throw new Exception('Insufficient balance.');
                 }
-                $wallet->available_balance -= $data->amount;
+                $wallet->available_balance = bcsub($balanceBefore, $data->amount, 2);
             } else {
-                $wallet->available_balance += $data->amount;
+                $wallet->available_balance = bcadd($balanceBefore, $data->amount, 2);
             }
 
             $balanceAfter = $wallet->available_balance;
