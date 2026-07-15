@@ -73,6 +73,12 @@ func (c *Consumer) Start(queueName string) error {
 		return fmt.Errorf("failed to declare main queue %q: %w", queueName, err)
 	}
 
+	// Set QoS prefetch count to prevent unbounded memory usage if processing is slow.
+	// 100 is a reasonable default to keep the consumer busy without overloading it.
+	if err := c.channel.Qos(100, 0, false); err != nil {
+		return fmt.Errorf("failed to set QoS: %w", err)
+	}
+
 	msgs, err := c.channel.Consume(
 		queueName,
 		"",    // consumer tag
