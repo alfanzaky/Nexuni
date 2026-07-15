@@ -2,6 +2,7 @@
 
 namespace App\Domains\Financial\Models;
 
+use App\Domains\Financial\Enums\WalletStatus;
 use App\Domains\Identity\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,13 @@ class Wallet extends Model
         'user_id',
         'status',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'status' => WalletStatus::class,
+        ];
+    }
 
     public function user(): BelongsTo
     {

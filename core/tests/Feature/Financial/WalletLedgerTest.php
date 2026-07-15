@@ -3,6 +3,8 @@
 namespace Tests\Feature\Financial;
 
 use App\Domains\Financial\DTOs\MutateWalletData;
+use App\Domains\Financial\Enums\LedgerType;
+use App\Domains\Financial\Enums\WalletStatus;
 use App\Domains\Financial\Models\Wallet;
 use App\Domains\Financial\Services\WalletLedgerService;
 use App\Domains\Identity\Models\User;
@@ -30,7 +32,7 @@ class WalletLedgerTest extends TestCase
 
         $this->wallet = Wallet::create([
             'user_id' => $this->user->id,
-            'status' => 'active',
+            'status' => WalletStatus::ACTIVE,
         ]);
 
         // Ensure starting balance is 0
@@ -41,8 +43,8 @@ class WalletLedgerTest extends TestCase
     {
         $data = new MutateWalletData(
             walletId: $this->wallet->id,
-            type: 'credit',
-            amount: 150000.00,
+            type: LedgerType::CREDIT,
+            amount: '150000.00',
             description: 'Initial deposit'
         );
 
@@ -51,7 +53,7 @@ class WalletLedgerTest extends TestCase
         $this->assertEquals(150000.00, $ledger->amount);
         $this->assertEquals(0, $ledger->balance_before);
         $this->assertEquals(150000.00, $ledger->balance_after);
-        $this->assertEquals('credit', $ledger->type);
+        $this->assertEquals(LedgerType::CREDIT, $ledger->type);
 
         $this->wallet->refresh();
         $this->assertEquals(150000.00, $this->wallet->available_balance);
@@ -62,23 +64,23 @@ class WalletLedgerTest extends TestCase
         // First credit
         $this->ledgerService->mutate(new MutateWalletData(
             walletId: $this->wallet->id,
-            type: 'credit',
-            amount: 50000.00,
+            type: LedgerType::CREDIT,
+            amount: '50000.00',
             description: 'Credit'
         ));
 
         // Then debit
         $ledger = $this->ledgerService->mutate(new MutateWalletData(
             walletId: $this->wallet->id,
-            type: 'debit',
-            amount: 20000.00,
+            type: LedgerType::DEBIT,
+            amount: '20000.00',
             description: 'Payment'
         ));
 
         $this->assertEquals(20000.00, $ledger->amount);
         $this->assertEquals(50000.00, $ledger->balance_before);
         $this->assertEquals(30000.00, $ledger->balance_after);
-        $this->assertEquals('debit', $ledger->type);
+        $this->assertEquals(LedgerType::DEBIT, $ledger->type);
 
         $this->wallet->refresh();
         $this->assertEquals(30000.00, $this->wallet->available_balance);
@@ -91,8 +93,8 @@ class WalletLedgerTest extends TestCase
 
         $this->ledgerService->mutate(new MutateWalletData(
             walletId: $this->wallet->id,
-            type: 'debit',
-            amount: 10000.00,
+            type: LedgerType::DEBIT,
+            amount: '10000.00',
             description: 'Payment'
         ));
     }

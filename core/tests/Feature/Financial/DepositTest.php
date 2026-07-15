@@ -6,6 +6,9 @@ use App\Domains\Deposit\Actions\ApproveDeposit;
 use App\Domains\Deposit\Actions\RequestDeposit;
 use App\Domains\Deposit\DTOs\ApproveDepositData;
 use App\Domains\Deposit\DTOs\RequestDepositData;
+use App\Domains\Deposit\Enums\DepositStatus;
+use App\Domains\Financial\Enums\LedgerType;
+use App\Domains\Financial\Enums\WalletStatus;
 use App\Domains\Financial\Models\Wallet;
 use App\Domains\Identity\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,7 +33,7 @@ class DepositTest extends TestCase
 
         $this->wallet = Wallet::create([
             'user_id' => $this->user->id,
-            'status' => 'active',
+            'status' => WalletStatus::ACTIVE,
         ]);
     }
 
@@ -49,7 +52,7 @@ class DepositTest extends TestCase
             'id' => $deposit->id,
             'user_id' => $this->user->id,
             'amount' => 500000.00,
-            'status' => 'pending',
+            'status' => DepositStatus::PENDING->value,
             'payment_method' => 'Bank Transfer',
         ]);
     }
@@ -71,7 +74,7 @@ class DepositTest extends TestCase
         ));
 
         // Assert deposit is approved
-        $this->assertEquals('approved', $deposit->fresh()->status);
+        $this->assertEquals(DepositStatus::APPROVED, $deposit->fresh()->status);
         $this->assertEquals($this->admin->id, $deposit->fresh()->approved_by_user_id);
 
         // Assert wallet is updated
@@ -80,7 +83,7 @@ class DepositTest extends TestCase
         // Assert ledger is created correctly with polymorphic relation
         $this->assertDatabaseHas('wallet_ledgers', [
             'wallet_id' => $this->wallet->id,
-            'type' => 'credit',
+            'type' => LedgerType::CREDIT->value,
             'amount' => 500000.00,
             'reference_type' => get_class($deposit),
             'reference_id' => $deposit->id,

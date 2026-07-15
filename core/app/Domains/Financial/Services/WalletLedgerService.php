@@ -3,6 +3,8 @@
 namespace App\Domains\Financial\Services;
 
 use App\Domains\Financial\DTOs\MutateWalletData;
+use App\Domains\Financial\Enums\LedgerType;
+use App\Domains\Financial\Enums\WalletStatus;
 use App\Domains\Financial\Models\Wallet;
 use App\Domains\Financial\Models\WalletLedger;
 use Exception;
@@ -22,21 +24,19 @@ class WalletLedgerService
             throw new InvalidArgumentException('Mutation amount must be greater than zero.');
         }
 
-        if (! in_array($data->type, ['credit', 'debit'])) {
-            throw new InvalidArgumentException('Mutation type must be credit or debit.');
-        }
+        // DTO type is now LedgerType, no need for in_array validation here
 
         return DB::transaction(function () use ($data) {
             // Pessimistic lock on the wallet row
             $wallet = Wallet::where('id', $data->walletId)->lockForUpdate()->firstOrFail();
 
-            if ($wallet->status !== 'active') {
+            if ($wallet->status !== WalletStatus::ACTIVE) {
                 throw new Exception('Cannot mutate inactive wallet.');
             }
 
             $balanceBefore = (string) $wallet->available_balance;
 
-            if ($data->type === 'debit') {
+            if ($data->type === LedgerType::DEBIT) {
                 if (bccomp($balanceBefore, $data->amount, 2) === -1) {
                     throw new Exception('Insufficient balance.');
                 }

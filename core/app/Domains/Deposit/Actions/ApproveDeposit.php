@@ -3,8 +3,10 @@
 namespace App\Domains\Deposit\Actions;
 
 use App\Domains\Deposit\DTOs\ApproveDepositData;
+use App\Domains\Deposit\Enums\DepositStatus;
 use App\Domains\Deposit\Models\Deposit;
 use App\Domains\Financial\DTOs\MutateWalletData;
+use App\Domains\Financial\Enums\LedgerType;
 use App\Domains\Financial\Models\Wallet;
 use App\Domains\Financial\Services\WalletLedgerService;
 use Exception;
@@ -24,11 +26,11 @@ class ApproveDeposit
         return DB::transaction(function () use ($data) {
             $deposit = Deposit::lockForUpdate()->findOrFail($data->depositId);
 
-            if ($deposit->status !== 'pending') {
+            if ($deposit->status !== DepositStatus::PENDING) {
                 throw new Exception('Only pending deposits can be approved.');
             }
 
-            $deposit->status = 'approved';
+            $deposit->status = DepositStatus::APPROVED;
             $deposit->approved_by_user_id = $data->approvedByUserId;
             $deposit->save();
 
@@ -36,7 +38,7 @@ class ApproveDeposit
 
             $mutateData = new MutateWalletData(
                 walletId: $wallet->id,
-                type: 'credit',
+                type: LedgerType::CREDIT,
                 amount: $deposit->amount,
                 description: 'Deposit approval',
                 reference: $deposit

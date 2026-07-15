@@ -3,6 +3,7 @@
 namespace App\Domains\Deposit\Actions;
 
 use App\Domains\Deposit\DTOs\RequestDepositData;
+use App\Domains\Deposit\Enums\DepositStatus;
 use App\Domains\Deposit\Models\Deposit;
 use InvalidArgumentException;
 
@@ -17,7 +18,7 @@ class RequestDeposit
         return Deposit::create([
             'user_id' => $data->userId,
             'amount' => $data->amount,
-            'status' => 'pending',
+            'status' => DepositStatus::PENDING,
             'payment_method' => $data->paymentMethod,
         ]);
     }
