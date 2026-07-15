@@ -9,6 +9,7 @@ import (
 
 	"github.com/alfanzaky/nexuni/engine/internal/infrastructure/httpclient"
 	"github.com/alfanzaky/nexuni/engine/internal/infrastructure/rabbitmq"
+	"github.com/alfanzaky/nexuni/engine/internal/infrastructure/supplier/digiflazz"
 	"github.com/alfanzaky/nexuni/engine/internal/usecase"
 	"github.com/alfanzaky/nexuni/engine/internal/usecase/supplier"
 	"github.com/sony/gobreaker"
@@ -38,6 +39,28 @@ func main() {
 	}
 
 	supplierRouter := supplier.NewRouter()
+	
+	// Create HTTP client with Circuit Breaker for Digiflazz (ProviderID = 1)
+	digiflazzBaseClient := httpclient.NewDefaultClient(15 * time.Second)
+	digiflazzCBSettings := gobreaker.Settings{
+		Name:        "Digiflazz-API-CB",
+		MaxRequests: 5,               // Half-open allowed requests
+		Interval:    0,               // Never clear counts while CLOSED
+		Timeout:     60 * time.Second, // Wait 60s in OPEN state before trying Half-Open
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			// Trip if 5 consecutive failures occur
+			return counts.ConsecutiveFailures >= 5
+		},
+	}
+	digiflazzCBClient := httpclient.NewCircuitBreakerClient(digiflazzBaseClient, "digiflazz-api", digiflazzCBSettings)
+	
+	// Digiflazz URL will eventually come from env, using dummy for now to test CB
+	digiflazzURL := os.Getenv("DIGIFLAZZ_API_URL")
+	if digiflazzURL == "" {
+		digiflazzURL = "http://invalid-supplier-url"
+	}
+	digiflazzRepo := digiflazz.NewRepository(digiflazzCBClient, digiflazzURL)
+	supplierRouter.Register(1, digiflazzRepo)
 	
 	// Create HTTP client with Circuit Breaker for Laravel callback
 	baseClient := httpclient.NewDefaultClient(10 * time.Second)
