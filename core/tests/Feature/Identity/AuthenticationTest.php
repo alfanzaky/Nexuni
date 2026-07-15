@@ -80,4 +80,27 @@ class AuthenticationTest extends TestCase
 
         $this->authService->login($data);
     }
+
+    public function test_user_can_register_and_login()
+    {
+        $registerData = new RegisterUserData(
+            name: 'Alice',
+            email: 'alice@example.com',
+            phone: '08111222333',
+            password: 'alicepassword123'
+        );
+
+        $this->authService->register($registerData);
+
+        $loginData = new LoginUserData(
+            email: 'alice@example.com',
+            password: 'alicepassword123'
+        );
+
+        $result = $this->authService->login($loginData);
+
+        $this->assertArrayHasKey('user', $result);
+        $this->assertArrayHasKey('token', $result);
+        $this->assertEquals('alice@example.com', $result['user']->email);
+    }
 }
