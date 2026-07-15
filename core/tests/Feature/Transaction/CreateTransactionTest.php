@@ -119,4 +119,23 @@ class CreateTransactionTest extends TestCase
         $this->assertEquals(40000.00, $this->wallet->available_balance);
         $this->assertEquals(10000.00, $this->wallet->held_balance);
     }
+
+    public function test_cannot_create_transaction_for_inactive_product()
+    {
+        $this->product->update(['is_active' => false]);
+
+        $this->expectException(\App\Domains\Product\Exceptions\ProductInactiveException::class);
+        $this->expectExceptionMessage('Cannot create transaction for an inactive product.');
+
+        $action = $this->app->make(CreateTransaction::class);
+
+        $data = new CreateTransactionData(
+            userId: $this->user->id,
+            productId: $this->product->id,
+            destination: '08123456789',
+            idempotencyKey: 'IDEM-124'
+        );
+
+        $action->execute($data);
+    }
 }

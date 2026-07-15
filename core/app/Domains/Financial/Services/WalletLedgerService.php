@@ -122,19 +122,18 @@ class WalletLedgerService
     /**
      * @throws Exception
      */
-    public function releaseHoldBalance(int $walletId, string $amount, string $description, ?Model $reference = null): WalletLedger
+    public function releaseHoldBalance(int $walletId, string $amount, string $description, ?Model $reference = null, bool $force = false): WalletLedger
     {
         if (bccomp($amount, '0', 2) <= 0) {
             throw new InvalidArgumentException('Release amount must be greater than zero.');
         }
 
-        return DB::transaction(function () use ($walletId, $amount, $description, $reference) {
+        return DB::transaction(function () use ($walletId, $amount, $description, $reference, $force) {
             $wallet = Wallet::where('id', $walletId)->lockForUpdate()->firstOrFail();
             
-            // INTENTIONAL DESIGN DECISION:
-            // We intentionally skip the WalletStatus::ACTIVE check here.
-            // If a wallet was locked/suspended while funds were held, we MUST still allow 
-            // the system to release the hold so funds are not permanently trapped in limbo.
+            if (!$force && $wallet->status !== WalletStatus::ACTIVE) {
+                throw new WalletInactiveException('Cannot mutate inactive wallet.');
+            }
 
             $heldBefore = (string) $wallet->held_balance;
             $balanceBefore = (string) $wallet->available_balance;
@@ -171,19 +170,18 @@ class WalletLedgerService
     /**
      * @throws Exception
      */
-    public function captureHoldBalance(int $walletId, string $amount): void
+    public function captureHoldBalance(int $walletId, string $amount, bool $force = false): void
     {
         if (bccomp($amount, '0', 2) <= 0) {
             throw new InvalidArgumentException('Capture amount must be greater than zero.');
         }
 
-        DB::transaction(function () use ($walletId, $amount) {
+        DB::transaction(function () use ($walletId, $amount, $force) {
             $wallet = Wallet::where('id', $walletId)->lockForUpdate()->firstOrFail();
             
-            // INTENTIONAL DESIGN DECISION:
-            // We intentionally skip the WalletStatus::ACTIVE check here.
-            // If a wallet was locked/suspended while a transaction is processing, we MUST still allow 
-            // the system to capture the hold so the supplier gets paid for the completed service.
+            if (!$force && $wallet->status !== WalletStatus::ACTIVE) {
+                throw new WalletInactiveException('Cannot mutate inactive wallet.');
+            }
 
             $heldBefore = (string) $wallet->held_balance;
 

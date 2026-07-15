@@ -42,11 +42,15 @@ class CreateTransaction
 
             $product = Product::findOrFail($data->productId);
 
+            if (! $product->is_active) {
+                throw new \App\Domains\Product\Exceptions\ProductInactiveException('Cannot create transaction for an inactive product.');
+            }
+
             // Calculate final price
             $finalPrice = (string) $product->price;
 
             // Hold the balance (this creates the DEBIT ledger)
-            $this->ledgerService->holdBalance($wallet->id, $finalPrice, 'Payment Hold for ' . $product->name, $user);
+            $ledger = $this->ledgerService->holdBalance($wallet->id, $finalPrice, 'Payment Hold for ' . $product->name);
 
             // Generate unique transaction ID
             $transactionId = 'TRX-'.date('YmdHis').'-'.Str::random(6);
@@ -62,6 +66,10 @@ class CreateTransaction
                 'status' => TransactionStatus::PENDING,
                 'idempotency_key' => $data->idempotencyKey,
             ]);
+
+            // Update ledger reference to the newly created transaction
+            $ledger->reference()->associate($transaction);
+            $ledger->save();
 
             // TODO: Dispatch Event (e.g., TransactionCreated) to RabbitMQ/Queue
             // Event::dispatch(new TransactionCreated($transaction));

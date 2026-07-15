@@ -182,4 +182,44 @@ class WalletLedgerTest extends TestCase
 
         $this->ledgerService->releaseHoldBalance($this->wallet->id, '1000.00', 'Refund failed transaction');
     }
+
+    public function test_release_hold_throws_exception_on_inactive_wallet_without_force()
+    {
+        $this->ledgerService->mutate(new MutateWalletData($this->wallet->id, LedgerType::CREDIT, '10000.00', 'Deposit'));
+        $this->ledgerService->holdBalance($this->wallet->id, '1000.00', 'Hold');
+        
+        $this->wallet->update(['status' => WalletStatus::LOCKED]);
+
+        $this->expectException(\App\Domains\Financial\Exceptions\WalletInactiveException::class);
+        $this->ledgerService->releaseHoldBalance($this->wallet->id, '1000.00', 'Refund');
+    }
+
+    public function test_capture_hold_throws_exception_on_inactive_wallet_without_force()
+    {
+        $this->ledgerService->mutate(new MutateWalletData($this->wallet->id, LedgerType::CREDIT, '10000.00', 'Deposit'));
+        $this->ledgerService->holdBalance($this->wallet->id, '1000.00', 'Hold');
+        
+        $this->wallet->update(['status' => WalletStatus::LOCKED]);
+
+        $this->expectException(\App\Domains\Financial\Exceptions\WalletInactiveException::class);
+        $this->ledgerService->captureHoldBalance($this->wallet->id, '1000.00');
+    }
+
+    public function test_can_release_and_capture_on_inactive_wallet_with_force()
+    {
+        $this->ledgerService->mutate(new MutateWalletData($this->wallet->id, LedgerType::CREDIT, '10000.00', 'Deposit'));
+        $this->ledgerService->holdBalance($this->wallet->id, '1000.00', 'Hold');
+        
+        $this->wallet->update(['status' => WalletStatus::LOCKED]);
+
+        // Release with force = true
+        $this->ledgerService->releaseHoldBalance($this->wallet->id, '500.00', 'Refund', null, true);
+        
+        // Capture with force = true
+        $this->ledgerService->captureHoldBalance($this->wallet->id, '500.00', true);
+        
+        $this->wallet->refresh();
+        $this->assertEquals(9500.00, $this->wallet->available_balance);
+        $this->assertEquals(0, $this->wallet->held_balance);
+    }
 }
