@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -71,6 +72,11 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	}
 	
 	if err != nil {
+		if errors.Is(err, supplier.ErrUnsupportedProvider) {
+			log.Printf("Transaction %s failed due to permanent error: %v", payload.TransactionID, err)
+			return err // Return plain error so consumer sends it to DLQ
+		}
+
 		log.Printf("Transaction %s failed at supplier due to infrastructure/network error: %v", payload.TransactionID, err)
 		// Return TransientError so the message is requeued and retried later.
 		// We do NOT want to send a FAILED callback for transient network issues or Open Circuit Breakers,

@@ -2,11 +2,15 @@ package supplier
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
 	domain "github.com/alfanzaky/nexuni/engine/internal/domain/supplier"
 )
+
+// ErrUnsupportedProvider is returned when the router cannot find a repository for the given provider ID.
+var ErrUnsupportedProvider = errors.New("unsupported provider ID")
 
 // Router determines which supplier API to call based on the provider ID.
 type Router struct {
@@ -29,7 +33,7 @@ func (r *Router) Route(ctx context.Context, providerID int, transactionID, desti
 	repo, exists := r.repositories[providerID]
 	if !exists {
 		log.Printf("[Router] Unsupported provider ID: %d", providerID)
-		return nil, fmt.Errorf("unsupported provider ID: %d", providerID)
+		return nil, fmt.Errorf("%w: %d", ErrUnsupportedProvider, providerID)
 	}
 
 	log.Printf("[Router] Routing transaction %s for provider %d (code: %s)", transactionID, providerID, productCode)
@@ -41,7 +45,7 @@ func (r *Router) CheckStatus(ctx context.Context, providerID int, transactionID 
 	repo, exists := r.repositories[providerID]
 	if !exists {
 		log.Printf("[Router] Unsupported provider ID for status check: %d", providerID)
-		return nil, fmt.Errorf("unsupported provider ID: %d", providerID)
+		return nil, fmt.Errorf("%w: %d", ErrUnsupportedProvider, providerID)
 	}
 
 	log.Printf("[Router] Checking status for transaction %s for provider %d", transactionID, providerID)
