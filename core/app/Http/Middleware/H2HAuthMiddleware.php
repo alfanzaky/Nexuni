@@ -33,12 +33,9 @@ class H2HAuthMiddleware
             return response()->json(['message' => 'Request expired or invalid timestamp'], 401);
         }
 
-        // 2. Nonce Validation (Replay Attack Prevention)
+        // 2. Fast Nonce Validation (Replay Attack Prevention)
         $nonceKey = "h2h_nonce_{$apiKey}_{$nonce}";
-        
-        // Use atomic Cache::add() which returns true only if the key didn't exist and was inserted.
-        // This prevents race conditions where concurrent requests pass has() before put().
-        if (! Cache::add($nonceKey, true, now()->addMinutes(5))) {
+        if (Cache::has($nonceKey)) {
             return response()->json(['message' => 'Replay attack detected'], 401);
         }
 
@@ -68,6 +65,13 @@ class H2HAuthMiddleware
 
         if (! hash_equals($expectedSignature, $signature)) {
             return response()->json(['message' => 'Invalid Signature'], 401);
+        }
+
+        // 6. Final Atomic Nonce Registration
+        // This is done AFTER authentication to prevent unauthenticated attackers from exhausting nonces
+        // on behalf of legitimate partners (Denial of Service).
+        if (! Cache::add($nonceKey, true, now()->addMinutes(5))) {
+            return response()->json(['message' => 'Replay attack detected (concurrent)'], 401);
         }
 
         // Attach partner to request for controller use
