@@ -73,8 +73,11 @@ class CreateTransaction
             $ledger->reference()->associate($transaction);
             $ledger->save();
 
-            // Dispatch Event to RabbitMQ
-            event(new TransactionCreatedEvent($transaction));
+            // Dispatch Event AFTER the DB commit to prevent phantom messages.
+            // If the commit fails, this callback is never invoked and no message is published.
+            DB::afterCommit(function () use ($transaction) {
+                event(new TransactionCreatedEvent($transaction));
+            });
 
             return $transaction;
         });

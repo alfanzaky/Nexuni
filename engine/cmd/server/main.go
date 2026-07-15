@@ -30,17 +30,23 @@ func main() {
 	}
 	defer consumer.Close()
 
-	// Start consuming in a goroutine
+	// Use an error channel so that consumer failures propagate to the main goroutine,
+	// allowing deferred cleanup (consumer.Close) to execute gracefully.
+	consumerErr := make(chan error, 1)
 	go func() {
 		if err := consumer.Start(queueName); err != nil {
-			log.Fatalf("Failed to start consumer: %v", err)
+			consumerErr <- err
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shutdown the server
+	// Wait for either an interrupt signal or a consumer error
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
 
-	log.Println("Shutting down Go Transaction Engine...")
+	select {
+	case <-quit:
+		log.Println("Shutting down Go Transaction Engine...")
+	case err := <-consumerErr:
+		log.Printf("Consumer encountered a fatal error: %v. Shutting down...", err)
+	}
 }

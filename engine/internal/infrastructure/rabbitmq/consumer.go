@@ -21,6 +21,7 @@ func NewConsumer(amqpURI string, processor *usecase.TransactionProcessor) (*Cons
 
 	ch, err := conn.Channel()
 	if err != nil {
+		conn.Close() // Close the connection to prevent resource leak
 		return nil, err
 	}
 
