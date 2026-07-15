@@ -18,6 +18,7 @@ class PublishTransactionToRabbitMQ
         OutboxMessage::create([
             'event_type' => 'transaction.created',
             'payload' => [
+                'action' => 'purchase',
                 'transaction_id' => $transaction->transaction_id,
                 'product_id' => $transaction->product_id,
                 'provider_id' => $transaction->provider_id,

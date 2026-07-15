@@ -17,8 +17,10 @@ const (
 	StatusPending TransactionStatus = "PENDING"
 )
 
-// Repository defines the interface for interacting with a specific supplier.
 type Repository interface {
 	// Purchase triggers a transaction on the supplier's API.
 	Purchase(ctx context.Context, transactionID, destination, productCode string) (*SupplierResponse, error)
+
+	// CheckStatus verifies the final status of a PENDING transaction.
+	CheckStatus(ctx context.Context, transactionID string) (*SupplierResponse, error)
 }

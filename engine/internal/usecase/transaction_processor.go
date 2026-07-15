@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	domainSupplier "github.com/alfanzaky/nexuni/engine/internal/domain/supplier"
 	"github.com/alfanzaky/nexuni/engine/internal/domain/transaction"
 	"github.com/alfanzaky/nexuni/engine/internal/infrastructure/httpclient"
 	"github.com/alfanzaky/nexuni/engine/internal/usecase/supplier"
@@ -48,8 +49,17 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// 1. Route to Supplier
-	res, err := tp.router.Route(ctx, payload.ProviderID, payload.TransactionID, payload.Destination, fmt.Sprintf("%d", payload.ProductID))
+	// 1. Route to Supplier based on Action
+	var res *domainSupplier.SupplierResponse
+	var err error
+
+	if payload.Action == "check_status" {
+		log.Printf("Executing CheckStatus for %s", payload.TransactionID)
+		res, err = tp.router.CheckStatus(ctx, payload.ProviderID, payload.TransactionID)
+	} else {
+		log.Printf("Executing Purchase for %s", payload.TransactionID)
+		res, err = tp.router.Route(ctx, payload.ProviderID, payload.TransactionID, payload.Destination, fmt.Sprintf("%d", payload.ProductID))
+	}
 	
 	status := "FAILED"
 	message := "Unknown error"
@@ -63,6 +73,11 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 		status = string(res.Status)
 		message = res.Message
 		sn = res.Sn
+	}
+
+	if status == "PENDING" {
+		log.Printf("Transaction %s is still PENDING. Acknowledging message without callback. Laravel will poll again.", payload.TransactionID)
+		return nil
 	}
 
 	// 2. Callback to Laravel

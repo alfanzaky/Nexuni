@@ -30,10 +30,25 @@ func (r *Router) Route(ctx context.Context, providerID int, transactionID, desti
 	time.Sleep(500 * time.Millisecond)
 
 	// Simulated Mock Response
-	// In a real scenario, this would be `return r.digiflazzRepo.Purchase(ctx, ...)`
+	// For testing the polling mechanism, we simulate a PENDING response on initial purchase
+	return &domain.SupplierResponse{
+		Status:  domain.StatusPending,
+		Message: "Simulated PENDING from Mock Supplier",
+		Sn:      fmt.Sprintf("SN-%s", transactionID),
+	}, nil
+}
+
+// CheckStatus verifies the final status of a PENDING transaction via the appropriate supplier.
+func (r *Router) CheckStatus(ctx context.Context, providerID int, transactionID string) (*domain.SupplierResponse, error) {
+	log.Printf("[Router] Checking status for transaction %s for provider %d", transactionID, providerID)
+
+	time.Sleep(500 * time.Millisecond)
+
+	// Simulated Mock CheckStatus Response
+	// In a real scenario, this would query the supplier. Here we simulate it resolving to SUCCESS.
 	return &domain.SupplierResponse{
 		Status:  domain.StatusSuccess,
-		Message: "Simulated Success from Mock Supplier",
-		Sn:      fmt.Sprintf("SN-%s", transactionID),
+		Message: "Simulated SUCCESS after status check",
+		Sn:      fmt.Sprintf("SN-%s-RESOLVED", transactionID),
 	}, nil
 }

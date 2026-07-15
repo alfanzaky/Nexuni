@@ -4,6 +4,7 @@ import "time"
 
 // Payload represents the JSON payload sent by Laravel.
 type Payload struct {
+	Action         string    `json:"action"`
 	TransactionID  string    `json:"transaction_id"`
 	ProductID      int       `json:"product_id"`
 	ProviderID     int       `json:"provider_id"`
