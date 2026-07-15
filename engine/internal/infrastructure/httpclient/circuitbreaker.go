@@ -41,10 +41,10 @@ func (c *cbClient) DoRequest(ctx context.Context, method, url string, headers ma
 	})
 
 	if err != nil {
-		// If the error was our custom 5xx wrapper error, extract the response payload
+		// If the error was our custom 5xx wrapper error, extract the response payload and pass the error
 		if err == errHttpStatus5xx && res != nil {
 			cbr := res.(*cbResponse)
-			return cbr.body, cbr.statusCode, nil
+			return cbr.body, cbr.statusCode, err
 		}
 		// Otherwise, it's a real network error or CircuitBreakerOpenError
 		return nil, 0, err
