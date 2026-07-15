@@ -53,7 +53,7 @@ class CreatePartner
                 'api_key' => $apiKey,
                 'api_secret' => $apiSecret,
                 'webhook_url' => $data['webhook_url'] ?? null,
-                'is_active' => $data['is_active'] ?? true,
+                'is_active' => $data['is_active'] ?? false,
                 'rate_limit' => $data['rate_limit'] ?? 60,
             ]);
 
