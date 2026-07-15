@@ -1,0 +1,24 @@
+<?php
+
+namespace App\Domains\Deposit\Actions;
+
+use App\Domains\Deposit\DTOs\RequestDepositData;
+use App\Domains\Deposit\Models\Deposit;
+use InvalidArgumentException;
+
+class RequestDeposit
+{
+    public function execute(RequestDepositData $data): Deposit
+    {
+        if ($data->amount <= 0) {
+            throw new InvalidArgumentException('Deposit amount must be greater than zero.');
+        }
+
+        return Deposit::create([
+            'user_id' => $data->userId,
+            'amount' => $data->amount,
+            'status' => 'pending',
+            'payment_method' => $data->paymentMethod,
+        ]);
+    }
+}
