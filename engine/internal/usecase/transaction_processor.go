@@ -115,13 +115,12 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	log.Printf("Sending callback to %s", cbURL)
 	_, statusCode, cbErr := tp.callbackClient.DoRequest(ctx, "POST", cbURL, headers, cbBytes)
 	if cbErr != nil {
-		log.Printf("Failed to send callback to Laravel: %v", cbErr)
-		return &TransientError{Err: cbErr} // Network error is transient
-	}
-
-	if statusCode >= 500 {
-		log.Printf("Laravel returned server error status %d for callback", statusCode)
-		return &TransientError{Err: fmt.Errorf("laravel callback returned transient %d", statusCode)}
+		if errors.Is(cbErr, httpclient.ErrServerStatus) {
+			log.Printf("Laravel returned server error (5xx) for callback: %v", cbErr)
+		} else {
+			log.Printf("Failed to send callback to Laravel (network/circuit-breaker error): %v", cbErr)
+		}
+		return &TransientError{Err: cbErr} // Both 5xx and network errors are transient
 	}
 
 	if statusCode >= 400 {
