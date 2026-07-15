@@ -10,6 +10,8 @@ import (
 )
 
 // Client defines the interface for making HTTP requests.
+// Implementations (like CircuitBreaker) may return ErrServerStatus for HTTP 5xx responses.
+// Callers who need to parse 5xx response bodies should check for errors.Is(err, ErrServerStatus).
 type Client interface {
 	DoRequest(ctx context.Context, method, url string, headers map[string]string, body []byte) ([]byte, int, error)
 }
