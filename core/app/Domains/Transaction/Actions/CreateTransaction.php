@@ -24,7 +24,14 @@ class CreateTransaction
     public function execute(CreateTransactionData $data): Transaction
     {
         return DB::transaction(function () use ($data) {
-            // Check for idempotency to prevent duplicate transactions
+            $user = User::findOrFail($data->userId);
+
+            // 1. Fetch and lock the user's active wallet FIRST.
+            // This serializes all transaction creations for this user, preventing race conditions
+            // where two concurrent requests with the same idempotency key both pass the check.
+            $wallet = $user->wallet()->lockForUpdate()->firstOrFail();
+
+            // 2. Check for idempotency to prevent duplicate transactions
             $existing = Transaction::where('user_id', $data->userId)
                 ->where('idempotency_key', $data->idempotencyKey)
                 ->first();
@@ -33,11 +40,7 @@ class CreateTransaction
                 return $existing;
             }
 
-            $user = User::findOrFail($data->userId);
             $product = Product::findOrFail($data->productId);
-
-            // Fetch the user's active wallet
-            $wallet = $user->wallet()->firstOrFail();
 
             // Calculate final price
             $finalPrice = (string) $product->price;

@@ -108,7 +108,7 @@ class WalletLedgerService
             throw new InvalidArgumentException('Release amount must be greater than zero.');
         }
 
-        DB::transaction(function () use ($walletId, $amount) {
+        DB::transaction(function () use ($walletId, $amount, $description, $reference) {
             $wallet = Wallet::where('id', $walletId)->lockForUpdate()->firstOrFail();
             $heldBefore = (string) $wallet->held_balance;
 
