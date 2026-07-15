@@ -30,6 +30,7 @@ class Partner extends Model
      */
     protected $hidden = [
         'api_secret',
+        'plain_secret',
     ];
 
     /**
