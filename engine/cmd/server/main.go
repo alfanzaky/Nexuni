@@ -7,8 +7,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alfanzaky/nexuni/engine/internal/infrastructure/httpclient"
 	"github.com/alfanzaky/nexuni/engine/internal/infrastructure/rabbitmq"
 	"github.com/alfanzaky/nexuni/engine/internal/usecase"
+	"github.com/alfanzaky/nexuni/engine/internal/usecase/supplier"
+	"github.com/sony/gobreaker"
 )
 
 func main() {
@@ -24,7 +27,24 @@ func main() {
 		queueName = "transaction_queue"
 	}
 
-	processor := usecase.NewTransactionProcessor()
+	laravelInternalURL := os.Getenv("LARAVEL_INTERNAL_URL")
+	if laravelInternalURL == "" {
+		laravelInternalURL = "http://localhost:8000"
+	}
+
+	supplierRouter := supplier.NewRouter()
+	
+	// Create HTTP client with Circuit Breaker for Laravel callback
+	baseClient := httpclient.NewDefaultClient(10 * time.Second)
+	cbSettings := gobreaker.Settings{
+		Name:        "Laravel-Callback-CB",
+		MaxRequests: 3,
+		Interval:    30 * time.Second,
+		Timeout:     10 * time.Second,
+	}
+	callbackClient := httpclient.NewCircuitBreakerClient(baseClient, "laravel-callback", cbSettings)
+
+	processor := usecase.NewTransactionProcessor(supplierRouter, callbackClient, laravelInternalURL)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

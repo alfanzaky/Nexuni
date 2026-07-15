@@ -1,34 +1,97 @@
 package usecase
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/alfanzaky/nexuni/engine/internal/domain/transaction"
+	"github.com/alfanzaky/nexuni/engine/internal/infrastructure/httpclient"
+	"github.com/alfanzaky/nexuni/engine/internal/usecase/supplier"
 )
 
 type TransactionProcessor struct {
-	// dependencies like gRPC client or HTTP clients will be injected here later
+	router         *supplier.Router
+	callbackClient httpclient.Client
+	laravelURL     string
 }
 
-func NewTransactionProcessor() *TransactionProcessor {
-	return &TransactionProcessor{}
+func NewTransactionProcessor(router *supplier.Router, callbackClient httpclient.Client, laravelURL string) *TransactionProcessor {
+	return &TransactionProcessor{
+		router:         router,
+		callbackClient: callbackClient,
+		laravelURL:     laravelURL,
+	}
+}
+
+// CallbackPayload represents the payload sent back to Laravel
+type CallbackPayload struct {
+	TransactionID string `json:"transaction_id"`
+	Status        string `json:"status"`
+	Message       string `json:"message"`
+	Sn            string `json:"sn"`
 }
 
 func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	var payload transaction.Payload
 	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
 		log.Printf("Failed to unmarshal payload: %v", err)
-		return err // In production, might send to DLQ instead of returning error if payload is completely invalid
+		return err // In production, might send to DLQ
 	}
 
 	log.Printf("Processing transaction ID: %s", payload.TransactionID)
 
-	// TODO: Phase 8 - Implement Supplier Routing and HTTP Request Execution here.
-	// For now, we simulate success.
-	log.Printf("Transaction %s processed via Mock Supplier.", payload.TransactionID)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	// TODO: Send result back to Laravel via gRPC
+	// 1. Route to Supplier
+	res, err := tp.router.Route(ctx, payload.ProviderID, payload.TransactionID, payload.Destination, fmt.Sprintf("%d", payload.ProductID))
+	
+	status := "FAILED"
+	message := "Unknown error"
+	sn := ""
 
+	if err != nil {
+		log.Printf("Transaction %s failed at supplier: %v", payload.TransactionID, err)
+		message = err.Error()
+	} else {
+		log.Printf("Transaction %s processed. Status: %s", payload.TransactionID, res.Status)
+		status = string(res.Status)
+		message = res.Message
+		sn = res.Sn
+	}
+
+	// 2. Callback to Laravel
+	cbPayload := CallbackPayload{
+		TransactionID: payload.TransactionID,
+		Status:        status,
+		Message:       message,
+		Sn:            sn,
+	}
+
+	cbBytes, _ := json.Marshal(cbPayload)
+	cbURL := fmt.Sprintf("%s/api/internal/callback", tp.laravelURL)
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"Accept":       "application/json",
+		// In production, add a secret header here to authenticate internal requests
+		"X-Internal-Token": "secret-token-123", 
+	}
+
+	log.Printf("Sending callback to %s", cbURL)
+	_, statusCode, cbErr := tp.callbackClient.DoRequest(ctx, "POST", cbURL, headers, cbBytes)
+	if cbErr != nil {
+		log.Printf("Failed to send callback to Laravel: %v", cbErr)
+		return cbErr // Return error so message gets Nack'd and retried
+	}
+
+	if statusCode >= 400 {
+		log.Printf("Laravel returned error status %d for callback", statusCode)
+		return fmt.Errorf("laravel callback returned %d", statusCode)
+	}
+
+	log.Printf("Callback successful for %s", payload.TransactionID)
 	return nil
 }
