@@ -24,7 +24,7 @@ func (r *Router) Route(ctx context.Context, providerID int, transactionID, desti
 	// TODO: Phase 8.x - Implement actual supplier routing based on ProviderID.
 	// 1 = Mock Digiflazz, 2 = Mock Lapak, etc.
 
-	log.Printf("[Router] Routing transaction %s for provider %d (dest: %s, code: %s)", transactionID, providerID, destination, productCode)
+	log.Printf("[Router] Routing transaction %s for provider %d (code: %s)", transactionID, providerID, productCode)
 
 	// Simulate network delay
 	time.Sleep(500 * time.Millisecond)
