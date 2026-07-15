@@ -70,21 +70,18 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 		res, err = tp.router.Route(ctx, payload.ProviderID, payload.TransactionID, payload.Destination, fmt.Sprintf("%d", payload.ProductID))
 	}
 	
-	status := "FAILED"
-	message := "Unknown error"
-	sn := ""
-
 	if err != nil {
-		log.Printf("Transaction %s failed at supplier: %v", payload.TransactionID, err)
-		message = err.Error()
-		// Supplier network failures could be treated as transient, but for now we'll rely on the supplier router
-		// to eventually map errors properly. We will still send the callback to Laravel as FAILED.
-	} else {
-		log.Printf("Transaction %s processed. Status: %s", payload.TransactionID, res.Status)
-		status = string(res.Status)
-		message = res.Message
-		sn = res.Sn
+		log.Printf("Transaction %s failed at supplier due to infrastructure/network error: %v", payload.TransactionID, err)
+		// Return TransientError so the message is requeued and retried later.
+		// We do NOT want to send a FAILED callback for transient network issues or Open Circuit Breakers,
+		// as that would permanently release the user's funds when the transaction might actually succeed later.
+		return &TransientError{Err: fmt.Errorf("supplier transient error: %w", err)}
 	}
+
+	log.Printf("Transaction %s processed. Status: %s", payload.TransactionID, res.Status)
+	status := string(res.Status)
+	message := res.Message
+	sn := res.Sn
 
 	if status == "PENDING" {
 		log.Printf("Transaction %s is still PENDING. Acknowledging message without callback. Laravel will poll again.", payload.TransactionID)
