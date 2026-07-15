@@ -4,6 +4,7 @@ namespace App\Domains\Deposit\Actions;
 
 use App\Domains\Deposit\DTOs\ApproveDepositData;
 use App\Domains\Deposit\Enums\DepositStatus;
+use App\Domains\Deposit\Exceptions\InvalidDepositStateException;
 use App\Domains\Deposit\Models\Deposit;
 use App\Domains\Financial\DTOs\MutateWalletData;
 use App\Domains\Financial\Enums\LedgerType;
