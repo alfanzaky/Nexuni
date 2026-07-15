@@ -17,6 +17,10 @@ class RabbitMQPublisherService
             return $this->channel;
         }
 
+        // Clean up any stale/broken connection resources before creating new ones.
+        // Without this, overwriting $this->connection would leak the old socket.
+        $this->close();
+
         $this->connection = new AMQPStreamConnection(
             config('rabbitmq.host'),
             config('rabbitmq.port'),

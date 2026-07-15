@@ -1,6 +1,7 @@
 package rabbitmq
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/alfanzaky/nexuni/engine/internal/usecase"
@@ -62,19 +63,24 @@ func (c *Consumer) Start(queueName string) error {
 	log.Printf("Consumer started, waiting for messages on queue: %s", queueName)
 
 	for msg := range msgs {
-		log.Printf("Received message: %s", msg.Body)
+		// Log only a safe, non-sensitive identifier — never log the full body.
+		// The payload contains PII (destination phone number, amount).
+		log.Printf("Received message from queue (body length: %d bytes)", len(msg.Body))
 
 		err := c.processor.Process(msg.Body)
 		if err != nil {
-			// In a real system, you might nack or send to DLQ
+			// Nack and do not requeue (send to DLQ if configured)
 			log.Printf("Error processing message: %v", err)
-			msg.Nack(false, false) // Nack and do not requeue (send to DLQ if configured)
+			msg.Nack(false, false)
 		} else {
 			msg.Ack(false)
 		}
 	}
 
-	return nil
+	// The delivery channel was closed — this means the broker connection dropped.
+	// Returning a sentinel error ensures the main goroutine is notified and can
+	// trigger a graceful shutdown instead of silently blocking forever.
+	return fmt.Errorf("message delivery channel closed unexpectedly (broker disconnected)")
 }
 
 func (c *Consumer) Close() {

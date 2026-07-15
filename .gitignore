@@ -1,1 +1,4 @@
 .agent/
+
+# Local environment files — never commit these
+.env
