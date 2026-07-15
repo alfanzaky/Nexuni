@@ -74,13 +74,13 @@ class WalletLedgerService
     /**
      * @throws Exception
      */
-    public function holdBalance(int $walletId, string $amount): void
+    public function holdBalance(int $walletId, string $amount, string $description, ?Model $reference = null): WalletLedger
     {
         if (bccomp($amount, '0', 2) <= 0) {
             throw new InvalidArgumentException('Hold amount must be greater than zero.');
         }
 
-        DB::transaction(function () use ($walletId, $amount) {
+        return DB::transaction(function () use ($walletId, $amount, $description, $reference) {
             $wallet = Wallet::where('id', $walletId)->lockForUpdate()->firstOrFail();
 
             if ($wallet->status !== WalletStatus::ACTIVE) {
@@ -96,73 +96,15 @@ class WalletLedgerService
             $wallet->available_balance = bcsub($balanceBefore, $amount, 2);
             $wallet->held_balance = bcadd((string) $wallet->held_balance, $amount, 2);
             $wallet->save();
-        });
-    }
-
-    /**
-     * @throws Exception
-     */
-    public function releaseHoldBalance(int $walletId, string $amount, string $description, ?Model $reference = null): void
-    {
-        if (bccomp($amount, '0', 2) <= 0) {
-            throw new InvalidArgumentException('Release amount must be greater than zero.');
-        }
-
-        DB::transaction(function () use ($walletId, $amount, $description, $reference) {
-            $wallet = Wallet::where('id', $walletId)->lockForUpdate()->firstOrFail();
-            $heldBefore = (string) $wallet->held_balance;
-
-            if (bccomp($heldBefore, $amount, 2) === -1) {
-                throw new Exception('Insufficient held balance.');
-            }
-
-            // Move from held to available
-            $wallet->held_balance = bcsub($heldBefore, $amount, 2);
-            $wallet->available_balance = bcadd((string) $wallet->available_balance, $amount, 2);
-            $wallet->save();
-
-            // NOTE: According to strict ledger rules, if we didn't create a DEBIT ledger when holding,
-            // creating a CREDIT ledger upon release would inflate the derived balance.
-            // But the architecture mentions "Refund" ledger.
-            // We will NOT create a ledger here to keep available_balance = sum(ledgers).
-            // If we need a FAILED ledger, we will adjust this logic later.
-        });
-    }
-
-    /**
-     * @throws Exception
-     */
-    public function captureHoldBalance(int $walletId, string $amount, string $description, ?Model $reference = null): WalletLedger
-    {
-        if (bccomp($amount, '0', 2) <= 0) {
-            throw new InvalidArgumentException('Capture amount must be greater than zero.');
-        }
-
-        return DB::transaction(function () use ($walletId, $amount, $description, $reference) {
-            $wallet = Wallet::where('id', $walletId)->lockForUpdate()->firstOrFail();
-            $heldBefore = (string) $wallet->held_balance;
-
-            if (bccomp($heldBefore, $amount, 2) === -1) {
-                throw new Exception('Insufficient held balance.');
-            }
-
-            // Deduct from held (money leaves system)
-            $wallet->held_balance = bcsub($heldBefore, $amount, 2);
-            $wallet->save();
-
-            // Create ledger for the actual expense
-            // To maintain available_balance = sum(ledgers), the balance_before in the ledger
-            // is theoretically the available_balance BEFORE the hold was placed, or we just
-            // treat available_balance + amount as the logical "before" state for this specific deduction.
-            $logicalBalanceBefore = bcadd((string) $wallet->available_balance, $amount, 2);
-            $logicalBalanceAfter = (string) $wallet->available_balance;
-
+            
+            // Create the DEBIT ledger at the exact moment the available_balance is reduced.
+            // This ensures balance_before and balance_after are 100% accurate point-in-time snapshots.
             $ledger = new WalletLedger([
                 'wallet_id' => $wallet->id,
                 'type' => LedgerType::DEBIT,
                 'amount' => $amount,
-                'balance_before' => $logicalBalanceBefore,
-                'balance_after' => $logicalBalanceAfter,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $wallet->available_balance,
                 'description' => $description,
             ]);
 
@@ -173,6 +115,88 @@ class WalletLedgerService
             $ledger->save();
 
             return $ledger;
+        });
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function releaseHoldBalance(int $walletId, string $amount, string $description, ?Model $reference = null): WalletLedger
+    {
+        if (bccomp($amount, '0', 2) <= 0) {
+            throw new InvalidArgumentException('Release amount must be greater than zero.');
+        }
+
+        return DB::transaction(function () use ($walletId, $amount, $description, $reference) {
+            $wallet = Wallet::where('id', $walletId)->lockForUpdate()->firstOrFail();
+            
+            // INTENTIONAL DESIGN DECISION:
+            // We intentionally skip the WalletStatus::ACTIVE check here.
+            // If a wallet was locked/suspended while funds were held, we MUST still allow 
+            // the system to release the hold so funds are not permanently trapped in limbo.
+
+            $heldBefore = (string) $wallet->held_balance;
+            $balanceBefore = (string) $wallet->available_balance;
+
+            if (bccomp($heldBefore, $amount, 2) === -1) {
+                throw new Exception('Insufficient held balance.');
+            }
+
+            // Move from held to available
+            $wallet->held_balance = bcsub($heldBefore, $amount, 2);
+            $wallet->available_balance = bcadd($balanceBefore, $amount, 2);
+            $wallet->save();
+            
+            // Create a CREDIT ledger to officially document the refund of the held balance.
+            $ledger = new WalletLedger([
+                'wallet_id' => $wallet->id,
+                'type' => LedgerType::CREDIT,
+                'amount' => $amount,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $wallet->available_balance,
+                'description' => $description,
+            ]);
+
+            if ($reference) {
+                $ledger->reference()->associate($reference);
+            }
+
+            $ledger->save();
+
+            return $ledger;
+        });
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function captureHoldBalance(int $walletId, string $amount): void
+    {
+        if (bccomp($amount, '0', 2) <= 0) {
+            throw new InvalidArgumentException('Capture amount must be greater than zero.');
+        }
+
+        DB::transaction(function () use ($walletId, $amount) {
+            $wallet = Wallet::where('id', $walletId)->lockForUpdate()->firstOrFail();
+            
+            // INTENTIONAL DESIGN DECISION:
+            // We intentionally skip the WalletStatus::ACTIVE check here.
+            // If a wallet was locked/suspended while a transaction is processing, we MUST still allow 
+            // the system to capture the hold so the supplier gets paid for the completed service.
+
+            $heldBefore = (string) $wallet->held_balance;
+
+            if (bccomp($heldBefore, $amount, 2) === -1) {
+                throw new Exception('Insufficient held balance.');
+            }
+
+            // Deduct from held (money leaves system permanently)
+            $wallet->held_balance = bcsub($heldBefore, $amount, 2);
+            $wallet->save();
+
+            // NOTE: No ledger is created here because the available_balance was already deducted 
+            // (and the DEBIT ledger was created) during holdBalance(). Creating another ledger here 
+            // would either require fabricating balances or would break the mathematical integrity of the ledgers.
         });
     }
 }

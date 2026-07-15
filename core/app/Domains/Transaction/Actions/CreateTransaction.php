@@ -45,8 +45,8 @@ class CreateTransaction
             // Calculate final price
             $finalPrice = (string) $product->price;
 
-            // Hold the balance
-            $this->ledgerService->holdBalance($wallet->id, $finalPrice);
+            // Hold the balance (this creates the DEBIT ledger)
+            $this->ledgerService->holdBalance($wallet->id, $finalPrice, 'Payment Hold for ' . $product->name, $user);
 
             // Generate unique transaction ID
             $transactionId = 'TRX-'.date('YmdHis').'-'.Str::random(6);
