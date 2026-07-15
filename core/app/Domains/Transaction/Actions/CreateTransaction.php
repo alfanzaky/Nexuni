@@ -71,8 +71,8 @@ class CreateTransaction
             $ledger->reference()->associate($transaction);
             $ledger->save();
 
-            // TODO: Dispatch Event (e.g., TransactionCreated) to RabbitMQ/Queue
-            // Event::dispatch(new TransactionCreated($transaction));
+            // Dispatch Event to RabbitMQ
+            event(new \App\Domains\Transaction\Events\TransactionCreatedEvent($transaction));
 
             return $transaction;
         });

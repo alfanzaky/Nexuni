@@ -19,6 +19,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        \Illuminate\Support\Facades\Event::listen(
+            \App\Domains\Transaction\Events\TransactionCreatedEvent::class,
+            [\App\Domains\Transaction\Listeners\PublishTransactionToRabbitMQ::class, 'handle']
+        );
     }
 }
