@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'digiflazz' => [
+        'webhook_secret' => env('DIGIFLAZZ_WEBHOOK_SECRET'),
+    ],
+
 ];

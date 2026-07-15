@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Internal\InternalCallbackController;
+use App\Http\Controllers\Webhook\DigiflazzWebhookController;
 use App\Http\Middleware\InternalIpAllowlist;
 use App\Http\Middleware\VerifyInternalToken;
 use Illuminate\Http\Request;
@@ -13,3 +14,5 @@ Route::get('/user', function (Request $request) {
 Route::prefix('internal')->middleware([InternalIpAllowlist::class, VerifyInternalToken::class])->group(function () {
     Route::post('/callback', [InternalCallbackController::class, 'handle']);
 });
+
+Route::post('/webhooks/digiflazz', [DigiflazzWebhookController::class, 'handle']);

@@ -15,7 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         try {
             $proxies = config('app.trusted_proxies');
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $proxies = env('TRUSTED_PROXIES');
         }
         if ($proxies === '*') {
