@@ -37,7 +37,6 @@ class CreatePartner
             // 2. Ensure User has a wallet (Wallet should be created usually, but we handle it just in case)
             if (! $user->wallet()->exists()) {
                 $user->wallet()->create([
-                    'available_balance' => 0,
                     'status' => WalletStatus::ACTIVE,
                 ]);
             }

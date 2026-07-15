@@ -58,6 +58,8 @@ class H2HAuthMiddleware
 
         // 5. HMAC Signature Validation
         // The signature should be: HMAC-SHA256(payload + timestamp + nonce, api_secret)
+        // NOTE: $partner->api_secret relies on the 'encrypted' cast in the Partner model 
+        // to automatically decrypt the key into plaintext. If the cast is removed, validation will fail.
         $payload = $request->getContent(); // Raw JSON body
         $stringToSign = $payload.$timestamp.$nonce;
         $expectedSignature = hash_hmac('sha256', $stringToSign, $partner->api_secret);
