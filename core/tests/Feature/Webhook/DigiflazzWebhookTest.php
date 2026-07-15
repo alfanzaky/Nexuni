@@ -2,8 +2,12 @@
 
 namespace Tests\Feature\Webhook;
 
+use App\Domains\Financial\Models\WalletLedger;
 use App\Domains\Financial\Services\WalletLedgerService;
 use App\Domains\Identity\Models\User;
+use App\Domains\Product\Models\Category;
+use App\Domains\Product\Models\Product;
+use App\Domains\Product\Models\Provider;
 use App\Domains\Transaction\Enums\TransactionStatus;
 use App\Domains\Transaction\Models\Transaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,6 +19,7 @@ class DigiflazzWebhookTest extends TestCase
     use RefreshDatabase;
 
     private string $secret = 'test-secret';
+
     private Transaction $transaction;
 
     protected function setUp(): void
@@ -25,19 +30,19 @@ class DigiflazzWebhookTest extends TestCase
         $user = User::factory()->create();
         $user->wallet()->create(['balance' => 0, 'held_balance' => 50000]);
 
-        $provider = \App\Domains\Product\Models\Provider::create([
+        $provider = Provider::create([
             'name' => 'Telkomsel',
             'code' => 'TSEL',
             'is_active' => true,
         ]);
 
-        $category = \App\Domains\Product\Models\Category::create([
+        $category = Category::create([
             'name' => 'Pulsa',
             'code' => 'PULSA',
             'is_active' => true,
         ]);
 
-        $product = \App\Domains\Product\Models\Product::create([
+        $product = Product::create([
             'name' => 'Pulsa 10k',
             'code' => 'TSEL10',
             'category_id' => $category->id,
@@ -60,29 +65,29 @@ class DigiflazzWebhookTest extends TestCase
 
     private function generateSignature(array $payload): string
     {
-        return 'sha1=' . hash_hmac('sha1', json_encode($payload), $this->secret);
+        return 'sha1='.hash_hmac('sha1', json_encode($payload), $this->secret);
     }
 
     public function test_it_rejects_missing_secret()
     {
         config(['services.digiflazz.webhook_secret' => null]);
-        
+
         $response = $this->postJson('/api/webhooks/digiflazz', []);
-        
+
         $response->assertStatus(500)
-                 ->assertJson(['error' => 'Webhook secret not configured']);
+            ->assertJson(['error' => 'Webhook secret not configured']);
     }
 
     public function test_it_rejects_invalid_signature()
     {
         $payload = ['data' => ['ref_id' => 'trx-123']];
-        
+
         $response = $this->withHeaders([
             'X-Hub-Signature' => 'sha1=invalid_signature',
         ])->postJson('/api/webhooks/digiflazz', $payload);
-        
+
         $response->assertStatus(401)
-                 ->assertJson(['error' => 'Invalid signature']);
+            ->assertJson(['error' => 'Invalid signature']);
     }
 
     public function test_it_handles_ping_event()
@@ -91,8 +96,8 @@ class DigiflazzWebhookTest extends TestCase
             'sed' => 'AgXXtVAHp',
             'hook_id' => '11aaabbb',
             'hook' => [
-                'url' => 'https://example.com/webhook'
-            ]
+                'url' => 'https://example.com/webhook',
+            ],
         ];
 
         $response = $this->withHeaders([
@@ -100,7 +105,7 @@ class DigiflazzWebhookTest extends TestCase
         ])->postJson('/api/webhooks/digiflazz', $payload);
 
         $response->assertStatus(200)
-                 ->assertJson(['message' => 'pong']);
+            ->assertJson(['message' => 'pong']);
     }
 
     public function test_it_processes_sukses_webhook()
@@ -108,9 +113,9 @@ class DigiflazzWebhookTest extends TestCase
         // Mock ledger service to avoid real wallet logic since we just want to test the webhook
         $this->mock(WalletLedgerService::class, function (MockInterface $mock) {
             $mock->shouldReceive('captureHoldBalance')
-                 ->once()
-                 ->with($this->transaction->user->wallet->id, '10000', true)
-                 ->andReturn(new \App\Domains\Financial\Models\WalletLedger());
+                ->once()
+                ->with($this->transaction->user->wallet->id, '10000', true)
+                ->andReturn(new WalletLedger);
         });
 
         $payload = [
@@ -119,7 +124,7 @@ class DigiflazzWebhookTest extends TestCase
                 'status' => 'Sukses',
                 'message' => 'Transaksi Sukses',
                 'sn' => 'SN-12345',
-            ]
+            ],
         ];
 
         $response = $this->withHeaders([
@@ -140,9 +145,9 @@ class DigiflazzWebhookTest extends TestCase
     {
         $this->mock(WalletLedgerService::class, function (MockInterface $mock) {
             $mock->shouldReceive('releaseHoldBalance')
-                 ->once()
-                 ->with($this->transaction->user->wallet->id, '10000', 'Refund for failed transaction trx-123', \Mockery::type(Transaction::class), true)
-                 ->andReturn(new \App\Domains\Financial\Models\WalletLedger());
+                ->once()
+                ->with($this->transaction->user->wallet->id, '10000', 'Refund for failed transaction trx-123', \Mockery::type(Transaction::class), true)
+                ->andReturn(new WalletLedger);
         });
 
         $payload = [
@@ -150,7 +155,7 @@ class DigiflazzWebhookTest extends TestCase
                 'ref_id' => 'trx-123',
                 'status' => 'Gagal',
                 'message' => 'Produk Gangguan',
-            ]
+            ],
         ];
 
         $response = $this->withHeaders([
@@ -172,7 +177,7 @@ class DigiflazzWebhookTest extends TestCase
             'data' => [
                 'ref_id' => 'trx-123',
                 'status' => 'Pending',
-            ]
+            ],
         ];
 
         $response = $this->withHeaders([
@@ -180,7 +185,7 @@ class DigiflazzWebhookTest extends TestCase
         ])->postJson('/api/webhooks/digiflazz', $payload);
 
         $response->assertStatus(200)
-                 ->assertJson(['message' => 'Status remains pending']);
+            ->assertJson(['message' => 'Status remains pending']);
 
         $this->assertDatabaseHas('transactions', [
             'transaction_id' => 'trx-123',

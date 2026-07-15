@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\H2H\TransactionController;
 use App\Http\Controllers\Internal\InternalCallbackController;
 use App\Http\Controllers\Webhook\DigiflazzWebhookController;
 use App\Http\Middleware\InternalIpAllowlist;
@@ -16,3 +17,7 @@ Route::prefix('internal')->middleware([InternalIpAllowlist::class, VerifyInterna
 });
 
 Route::post('/webhooks/digiflazz', [DigiflazzWebhookController::class, 'handle']);
+
+Route::prefix('h2h/v1')->middleware('h2h_auth')->group(function () {
+    Route::post('/transaction', [TransactionController::class, 'store']);
+});
