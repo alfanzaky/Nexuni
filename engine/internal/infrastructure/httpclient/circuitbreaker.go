@@ -34,7 +34,7 @@ func (c *cbClient) DoRequest(ctx context.Context, method, url string, headers ma
 		if statusCode >= 500 {
 			// Wrapping response so we can still return the body and status code, but returning an error 
 			// to trip the circuit breaker.
-			return &cbResponse{body: respBody, statusCode: statusCode}, errHttpStatus5xx
+			return &cbResponse{body: respBody, statusCode: statusCode}, ErrServerStatus
 		}
 		
 		return &cbResponse{body: respBody, statusCode: statusCode}, nil
@@ -42,7 +42,7 @@ func (c *cbClient) DoRequest(ctx context.Context, method, url string, headers ma
 
 	if err != nil {
 		// If the error was our custom 5xx wrapper error, extract the response payload and pass the error
-		if err == errHttpStatus5xx && res != nil {
+		if err == ErrServerStatus && res != nil {
 			cbr := res.(*cbResponse)
 			return cbr.body, cbr.statusCode, err
 		}
@@ -59,4 +59,4 @@ type cbResponse struct {
 	statusCode int
 }
 
-var errHttpStatus5xx = errors.New("http status 5xx")
+var ErrServerStatus = errors.New("http status 5xx")
