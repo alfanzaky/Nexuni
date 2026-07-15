@@ -98,12 +98,12 @@ func (r *digiflazzRepository) Purchase(ctx context.Context, transactionID, desti
 
 	var res ResponsePayload
 	if err := json.Unmarshal(resBytes, &res); err != nil {
-		// If status is >= 400 and it's not JSON, it could be a transient issue or WAF block.
+		// If status is >= 400 and it's not JSON, it could be a WAF block or bad credentials.
 		if statusCode >= 500 {
 			return nil, fmt.Errorf("digiflazz server error %d: %s", statusCode, string(resBytes))
 		}
-		// If unmarshal fails but the response is 2xx/4xx, might be an API change.
-		return nil, fmt.Errorf("failed to parse digiflazz response (HTTP %d): %w", statusCode, err)
+		// If unmarshal fails but the response is 4xx, it's a permanent client error.
+		return nil, &domain.PermanentError{Err: fmt.Errorf("failed to parse digiflazz response (HTTP %d): %w", statusCode, err)}
 	}
 
 	// Some 4xx errors from Digiflazz still return valid JSON with 'Gagal' status.

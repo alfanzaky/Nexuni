@@ -73,14 +73,16 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	
 	if err != nil {
 		if errors.Is(err, supplier.ErrUnsupportedProvider) {
-			log.Printf("Transaction %s failed due to permanent error: %v", payload.TransactionID, err)
-			return err // Return plain error so consumer sends it to DLQ
+			// This is a permanent error.
+			return err
 		}
-
-		log.Printf("Transaction %s failed at supplier due to infrastructure/network error: %v", payload.TransactionID, err)
+		var permErr *domainSupplier.PermanentError
+		if errors.As(err, &permErr) {
+			// This is a permanent error (e.g. 4xx from supplier).
+			return err
+		}
 		// Return TransientError so the message is requeued and retried later.
-		// We do NOT want to send a FAILED callback for transient network issues or Open Circuit Breakers,
-		// as that would permanently release the user's funds when the transaction might actually succeed later.
+		log.Printf("Supplier error for transaction %s: %v", payload.TransactionID, err)
 		return &TransientError{Err: fmt.Errorf("supplier transient error: %w", err)}
 	}
 
