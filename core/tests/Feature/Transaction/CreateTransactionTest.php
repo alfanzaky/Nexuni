@@ -49,13 +49,13 @@ class CreateTransactionTest extends TestCase
         $provider = Provider::create([
             'name' => 'Telkomsel',
             'code' => 'TSEL',
-            'status' => 'ACTIVE',
+            'is_active' => true,
         ]);
 
         $category = Category::create([
             'name' => 'Pulsa',
             'code' => 'PULSA',
-            'status' => 'ACTIVE',
+            'is_active' => true,
         ]);
 
         $this->product = Product::create([
