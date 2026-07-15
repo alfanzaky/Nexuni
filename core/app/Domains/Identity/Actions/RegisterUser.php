@@ -4,7 +4,6 @@ namespace App\Domains\Identity\Actions;
 
 use App\Domains\Identity\DTOs\RegisterUserData;
 use App\Domains\Identity\Models\User;
-use Illuminate\Support\Facades\Hash;
 
 class RegisterUser
 {
@@ -14,7 +13,7 @@ class RegisterUser
             'name' => $data->name,
             'email' => $data->email,
             'phone' => $data->phone,
-            'password' => Hash::make($data->password),
+            'password' => $data->password,
         ]);
 
         $user->role = $data->role;

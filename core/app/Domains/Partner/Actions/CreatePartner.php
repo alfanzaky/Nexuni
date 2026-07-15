@@ -30,7 +30,7 @@ class CreatePartner
                 [
                     'name' => $data['name'],
                     'phone' => $data['phone'],
-                    'password' => bcrypt($data['password'] ?? Str::random(12)),
+                    'password' => $data['password'] ?? Str::random(12),
                 ]
             );
 
