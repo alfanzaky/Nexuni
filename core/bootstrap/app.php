@@ -13,7 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $proxies = env('TRUSTED_PROXIES');
+        try {
+            $proxies = config('app.trusted_proxies');
+        } catch (\Throwable $e) {
+            $proxies = env('TRUSTED_PROXIES');
+        }
         if ($proxies === '*') {
             $middleware->trustProxies(at: '*');
         } elseif ($proxies) {
