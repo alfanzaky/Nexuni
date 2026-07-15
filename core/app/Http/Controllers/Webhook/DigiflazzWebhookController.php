@@ -28,9 +28,9 @@ class DigiflazzWebhookController extends Controller
 
         $signature = hash_hmac('sha1', $request->getContent(), $secret);
 
-        $hubSignature = $request->header('X-Hub-Signature');
+        $hubSignature = (string) $request->header('X-Hub-Signature');
 
-        if ($hubSignature !== 'sha1='.$signature) {
+        if (!hash_equals('sha1='.$signature, $hubSignature)) {
             Log::warning('Digiflazz webhook received with invalid signature.', [
                 'expected' => 'sha1='.$signature,
                 'received' => $hubSignature,
