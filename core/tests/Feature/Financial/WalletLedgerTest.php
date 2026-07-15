@@ -98,4 +98,64 @@ class WalletLedgerTest extends TestCase
             description: 'Payment'
         ));
     }
+
+    public function test_can_hold_balance()
+    {
+        $this->ledgerService->mutate(new MutateWalletData(
+            walletId: $this->wallet->id,
+            type: LedgerType::CREDIT,
+            amount: '10000.00',
+            description: 'Initial deposit'
+        ));
+
+        $this->ledgerService->holdBalance($this->wallet->id, '1000.00');
+
+        $this->wallet->refresh();
+        $this->assertEquals(9000.00, $this->wallet->available_balance);
+        $this->assertEquals(1000.00, $this->wallet->held_balance);
+    }
+
+    public function test_can_release_hold_balance()
+    {
+        $this->ledgerService->mutate(new MutateWalletData(
+            walletId: $this->wallet->id,
+            type: LedgerType::CREDIT,
+            amount: '10000.00',
+            description: 'Initial deposit'
+        ));
+
+        $this->ledgerService->holdBalance($this->wallet->id, '1000.00');
+        $this->ledgerService->releaseHoldBalance($this->wallet->id, '1000.00', 'Refund failed transaction');
+
+        $this->wallet->refresh();
+        $this->assertEquals(10000.00, $this->wallet->available_balance);
+        $this->assertEquals(0, $this->wallet->held_balance);
+    }
+
+    public function test_can_capture_hold_balance()
+    {
+        $this->ledgerService->mutate(new MutateWalletData(
+            walletId: $this->wallet->id,
+            type: LedgerType::CREDIT,
+            amount: '10000.00',
+            description: 'Initial deposit'
+        ));
+
+        $this->ledgerService->holdBalance($this->wallet->id, '1000.00');
+
+        $ledger = $this->ledgerService->captureHoldBalance($this->wallet->id, '1000.00', 'Capture transaction');
+
+        $this->wallet->refresh();
+        $this->assertEquals(9000.00, $this->wallet->available_balance);
+        $this->assertEquals(0, $this->wallet->held_balance);
+
+        $this->assertDatabaseHas('wallet_ledgers', [
+            'id' => $ledger->id,
+            'wallet_id' => $this->wallet->id,
+            'type' => LedgerType::DEBIT->value,
+            'amount' => 1000.00,
+            'balance_before' => 10000.00,
+            'balance_after' => 9000.00,
+        ]);
+    }
 }
