@@ -61,11 +61,11 @@ func main() {
 	}
 	digiflazzUsername := os.Getenv("DIGIFLAZZ_USERNAME")
 	if digiflazzUsername == "" {
-		log.Println("WARNING: DIGIFLAZZ_USERNAME is not set!")
+		log.Fatal("DIGIFLAZZ_USERNAME environment variable is required but not set.")
 	}
 	digiflazzAPIKey := os.Getenv("DIGIFLAZZ_API_KEY")
 	if digiflazzAPIKey == "" {
-		log.Println("WARNING: DIGIFLAZZ_API_KEY is not set!")
+		log.Fatal("DIGIFLAZZ_API_KEY environment variable is required but not set.")
 	}
 	digiflazzTesting := os.Getenv("DIGIFLAZZ_TESTING") == "true"
 
