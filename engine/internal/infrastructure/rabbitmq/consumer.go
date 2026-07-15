@@ -1,8 +1,10 @@
 package rabbitmq
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/alfanzaky/nexuni/engine/internal/usecase"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -101,9 +103,15 @@ func (c *Consumer) Start(queueName string) error {
 
 		err := c.processor.Process(msg.Body)
 		if err != nil {
-			// Nack and do not requeue (send to DLQ if configured)
-			log.Printf("Error processing message: %v", err)
-			msg.Nack(false, false)
+			var transientErr *usecase.TransientError
+			if errors.As(err, &transientErr) {
+				log.Printf("Transient error processing message: %v. Requeueing after delay.", err)
+				time.Sleep(2 * time.Second) // Prevent tight spin loop during temporary outages
+				msg.Nack(false, true)       // Requeue
+			} else {
+				log.Printf("Permanent error processing message: %v. Sending to DLQ.", err)
+				msg.Nack(false, false) // Do not requeue, send to DLQ
+			}
 		} else {
 			msg.Ack(false)
 		}

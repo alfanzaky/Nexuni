@@ -37,11 +37,20 @@ type CallbackPayload struct {
 	Sn            string `json:"sn"`
 }
 
+// TransientError indicates a failure that might resolve on retry
+type TransientError struct {
+	Err error
+}
+
+func (e *TransientError) Error() string {
+	return e.Err.Error()
+}
+
 func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	var payload transaction.Payload
 	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
 		log.Printf("Failed to unmarshal payload: %v", err)
-		return err // In production, might send to DLQ
+		return err // Permanent error (bad JSON)
 	}
 
 	log.Printf("Processing transaction ID: %s", payload.TransactionID)
@@ -68,6 +77,8 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	if err != nil {
 		log.Printf("Transaction %s failed at supplier: %v", payload.TransactionID, err)
 		message = err.Error()
+		// Supplier network failures could be treated as transient, but for now we'll rely on the supplier router
+		// to eventually map errors properly. We will still send the callback to Laravel as FAILED.
 	} else {
 		log.Printf("Transaction %s processed. Status: %s", payload.TransactionID, res.Status)
 		status = string(res.Status)
@@ -93,7 +104,6 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	headers := map[string]string{
 		"Content-Type": "application/json",
 		"Accept":       "application/json",
-		// Use environment-configured token to authenticate internal requests
 		"X-Internal-Token": tp.internalToken,
 	}
 
@@ -101,12 +111,17 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	_, statusCode, cbErr := tp.callbackClient.DoRequest(ctx, "POST", cbURL, headers, cbBytes)
 	if cbErr != nil {
 		log.Printf("Failed to send callback to Laravel: %v", cbErr)
-		return cbErr // Return error so message gets Nack'd and retried
+		return &TransientError{Err: cbErr} // Network error is transient
+	}
+
+	if statusCode >= 500 {
+		log.Printf("Laravel returned server error status %d for callback", statusCode)
+		return &TransientError{Err: fmt.Errorf("laravel callback returned transient %d", statusCode)}
 	}
 
 	if statusCode >= 400 {
-		log.Printf("Laravel returned error status %d for callback", statusCode)
-		return fmt.Errorf("laravel callback returned %d", statusCode)
+		log.Printf("Laravel returned client error status %d for callback", statusCode)
+		return fmt.Errorf("laravel callback returned permanent %d", statusCode)
 	}
 
 	log.Printf("Callback successful for %s", payload.TransactionID)
