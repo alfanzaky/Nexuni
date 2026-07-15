@@ -44,19 +44,32 @@ class RabbitMQPublisherService
 
     public function close(): void
     {
-        if ($this->channel !== null) {
-            $this->channel->close();
-            $this->channel = null;
+        // Null properties BEFORE calling close() so that:
+        // 1. A failed channel close doesn't prevent the connection close from running.
+        // 2. Subsequent calls to isConnected() immediately return false, preventing
+        //    any further use of the broken resources.
+        $channel = $this->channel;
+        $connection = $this->connection;
+        $this->channel = null;
+        $this->connection = null;
+
+        try {
+            $channel?->close();
+        } catch (\Throwable) {
+            // Swallow — socket may already be closed if broker restarted.
         }
 
-        if ($this->connection !== null) {
-            $this->connection->close();
-            $this->connection = null;
+        try {
+            $connection?->close();
+        } catch (\Throwable) {
+            // Swallow — same reason as above.
         }
     }
 
     public function __destruct()
     {
+        // Exceptions thrown inside __destruct() cause a PHP fatal error.
+        // close() already guards each resource with try-catch, so this is safe.
         $this->close();
     }
 }

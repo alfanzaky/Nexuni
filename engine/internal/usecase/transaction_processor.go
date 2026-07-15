@@ -22,11 +22,11 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 		return err // In production, might send to DLQ instead of returning error if payload is completely invalid
 	}
 
-	log.Printf("Processing Transaction: %s for Destination: %s", payload.TransactionID, payload.Destination)
+	log.Printf("Processing transaction ID: %s", payload.TransactionID)
 
 	// TODO: Phase 8 - Implement Supplier Routing and HTTP Request Execution here.
 	// For now, we simulate success.
-	log.Printf("Transaction %s successfully processed via Mock Supplier.", payload.TransactionID)
+	log.Printf("Transaction %s processed via Mock Supplier.", payload.TransactionID)
 
 	// TODO: Send result back to Laravel via gRPC
 

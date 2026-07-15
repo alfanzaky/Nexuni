@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/alfanzaky/nexuni/engine/internal/infrastructure/rabbitmq"
 	"github.com/alfanzaky/nexuni/engine/internal/usecase"
@@ -24,29 +25,57 @@ func main() {
 	}
 
 	processor := usecase.NewTransactionProcessor()
-	consumer, err := rabbitmq.NewConsumer(amqpURI, processor)
-	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
-	}
-	defer consumer.Close()
 
-	// Use an error channel so that consumer failures propagate to the main goroutine,
-	// allowing deferred cleanup (consumer.Close) to execute gracefully.
-	consumerErr := make(chan error, 1)
-	go func() {
-		if err := consumer.Start(queueName); err != nil {
-			consumerErr <- err
-		}
-	}()
-
-	// Wait for either an interrupt signal or a consumer error
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	select {
-	case <-quit:
-		log.Println("Shutting down Go Transaction Engine...")
-	case err := <-consumerErr:
-		log.Printf("Consumer encountered a fatal error: %v. Shutting down...", err)
+	// Reconnection loop with exponential backoff.
+	// The engine will automatically recover from broker restarts or transient
+	// network disruptions without requiring a process restart.
+	const maxBackoff = 60 * time.Second
+	backoff := 2 * time.Second
+
+	for {
+		log.Printf("Connecting to RabbitMQ (next retry in %s on failure)...", backoff)
+
+		consumer, err := rabbitmq.NewConsumer(amqpURI, processor)
+		if err != nil {
+			log.Printf("Failed to connect to RabbitMQ: %v. Retrying in %s...", err, backoff)
+			select {
+			case <-quit:
+				log.Println("Shutdown signal received during reconnect. Exiting.")
+				return
+			case <-time.After(backoff):
+				backoff = min(backoff*2, maxBackoff)
+				continue
+			}
+		}
+
+		// Reset backoff after a successful connection
+		backoff = 2 * time.Second
+		log.Println("Connected to RabbitMQ.")
+
+		consumerErr := make(chan error, 1)
+		go func() {
+			consumerErr <- consumer.Start(queueName)
+		}()
+
+		select {
+		case <-quit:
+			log.Println("Shutdown signal received. Closing consumer and exiting.")
+			consumer.Close()
+			return
+		case err := <-consumerErr:
+			log.Printf("Consumer disconnected: %v. Reconnecting...", err)
+			consumer.Close()
+			// Loop back to reconnect
+		}
 	}
+}
+
+func min(a, b time.Duration) time.Duration {
+	if a < b {
+		return a
+	}
+	return b
 }
