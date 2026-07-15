@@ -18,14 +18,20 @@ class InternalCallbackController extends Controller
     public function handle(Request $request): JsonResponse
     {
         // Authentication via pre-shared key for internal calls
+        $expectedToken = config('app.internal_token');
+        if (empty($expectedToken)) {
+            Log::error('INTERNAL_API_TOKEN is not configured in the environment.');
+            return response()->json(['error' => 'Internal Server Error'], 500);
+        }
+
         $token = $request->header('X-Internal-Token');
-        if ($token !== config('app.internal_token')) {
+        if ($token !== $expectedToken) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
         $validated = $request->validate([
             'transaction_id' => 'required|string',
-            'status' => 'required|string|in:SUCCESS,FAILED,PENDING',
+            'status' => 'required|string|in:SUCCESS,FAILED',
             'message' => 'nullable|string',
             'sn' => 'nullable|string',
         ]);

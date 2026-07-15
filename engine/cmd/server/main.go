@@ -34,8 +34,7 @@ func main() {
 
 	internalAPIToken := os.Getenv("INTERNAL_API_TOKEN")
 	if internalAPIToken == "" {
-		log.Println("WARNING: INTERNAL_API_TOKEN is not set. Using fallback token for development.")
-		internalAPIToken = "fallback-token-for-dev"
+		log.Fatal("INTERNAL_API_TOKEN environment variable is required but not set.")
 	}
 
 	supplierRouter := supplier.NewRouter()

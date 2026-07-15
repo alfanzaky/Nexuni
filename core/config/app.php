@@ -132,7 +132,7 @@ return [
     | like the Go Transaction Engine.
     |
     */
-    'internal_token' => env('INTERNAL_API_TOKEN', 'fallback-token-for-dev'),
+    'internal_token' => env('INTERNAL_API_TOKEN'),
 
     /*
     |--------------------------------------------------------------------------
