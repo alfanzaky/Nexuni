@@ -27,9 +27,9 @@ class H2HAuthMiddleware
             return response()->json(['message' => 'Missing required security headers'], 401);
         }
 
-        // 1. Timestamp Validation (max 5 minutes age)
+        // 1. Timestamp Validation (max 5 minutes age, no future timestamps)
         $requestTime = strtotime($timestamp);
-        if (! $requestTime || (time() - $requestTime > 300)) {
+        if (! $requestTime || abs(time() - $requestTime) > 300) {
             return response()->json(['message' => 'Request expired or invalid timestamp'], 401);
         }
 
