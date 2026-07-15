@@ -10,13 +10,17 @@ class RegisterUser
 {
     public function execute(RegisterUserData $data): User
     {
-        return User::create([
+        $user = new User([
             'name' => $data->name,
             'email' => $data->email,
             'phone' => $data->phone,
             'password' => Hash::make($data->password),
-            'role' => $data->role,
-            'is_active' => $data->isActive,
         ]);
+
+        $user->role = $data->role;
+        $user->is_active = $data->isActive;
+        $user->save();
+
+        return $user;
     }
 }

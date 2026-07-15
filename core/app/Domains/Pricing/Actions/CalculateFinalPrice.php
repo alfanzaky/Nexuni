@@ -18,22 +18,34 @@ class CalculateFinalPrice
             ->where(function ($query) use ($product) {
                 // Priority 1: Specific product
                 $query->where('product_id', $product->id)
-                    // Priority 2: Specific provider
+                    // Priority 2: Specific provider AND specific category
                     ->orWhere(function ($q) use ($product) {
-                        $q->whereNull('product_id')->where('provider_id', $product->provider_id);
+                        $q->whereNull('product_id')
+                            ->where('provider_id', $product->provider_id)
+                            ->where('category_id', $product->category_id);
                     })
-                    // Priority 3: Specific category
+                    // Priority 3: Specific provider only
                     ->orWhere(function ($q) use ($product) {
-                        $q->whereNull('product_id')->whereNull('provider_id')->where('category_id', $product->category_id);
+                        $q->whereNull('product_id')
+                            ->where('provider_id', $product->provider_id)
+                            ->whereNull('category_id');
                     })
-                    // Priority 4: Global margin
+                    // Priority 4: Specific category only
+                    ->orWhere(function ($q) use ($product) {
+                        $q->whereNull('product_id')
+                            ->whereNull('provider_id')
+                            ->where('category_id', $product->category_id);
+                    })
+                    // Priority 5: Global margin
                     ->orWhere(function ($q) {
-                        $q->whereNull('product_id')->whereNull('provider_id')->whereNull('category_id');
+                        $q->whereNull('product_id')
+                            ->whereNull('provider_id')
+                            ->whereNull('category_id');
                     });
             })
-            ->orderBy('product_id', 'desc')
-            ->orderBy('provider_id', 'desc')
-            ->orderBy('category_id', 'desc')
+            ->orderByRaw('product_id DESC NULLS LAST')
+            ->orderByRaw('provider_id DESC NULLS LAST')
+            ->orderByRaw('category_id DESC NULLS LAST')
             ->first();
 
         if (! $margin) {
