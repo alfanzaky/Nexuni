@@ -47,6 +47,11 @@ func (e *TransientError) Error() string {
 	return e.Err.Error()
 }
 
+// Unwrap returns the underlying error, allowing errors.Is and errors.As to work.
+func (e *TransientError) Unwrap() error {
+	return e.Err
+}
+
 func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 	var payload transaction.Payload
 	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
