@@ -53,6 +53,7 @@ class PollPendingTransactions extends Command
                         'action' => 'check_status',
                         'transaction_id' => $transaction->transaction_id,
                         'product_id' => $transaction->product_id,
+                        'product_code' => $transaction->product->code ?? '',
                         'provider_id' => $transaction->provider_id,
                         'destination' => $transaction->destination,
                         'amount' => (string) $transaction->amount,

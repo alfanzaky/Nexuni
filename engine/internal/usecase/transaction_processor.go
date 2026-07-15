@@ -68,7 +68,7 @@ func (tp *TransactionProcessor) Process(payloadBytes []byte) error {
 		res, err = tp.router.CheckStatus(ctx, payload.ProviderID, payload.TransactionID)
 	} else {
 		log.Printf("Executing Purchase for %s", payload.TransactionID)
-		res, err = tp.router.Route(ctx, payload.ProviderID, payload.TransactionID, payload.Destination, fmt.Sprintf("%d", payload.ProductID))
+		res, err = tp.router.Route(ctx, payload.ProviderID, payload.TransactionID, payload.Destination, payload.ProductCode)
 	}
 	
 	if err != nil {
