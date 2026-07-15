@@ -60,14 +60,23 @@ class TransactionController extends Controller
                 'message' => 'Validation Failed',
                 'errors' => $e->errors(),
             ], 422);
-        } catch (Exception $e) {
-            // Check for domain specific exceptions if any, else generic 400
-            Log::error('H2H Transaction Error: '.$e->getMessage());
-
+        } catch (\App\Domains\Financial\Exceptions\WalletInsufficientBalanceException $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
             ], 400);
+        } catch (\App\Domains\Product\Exceptions\ProductInactiveException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], 400);
+        } catch (Exception $e) {
+            Log::error('H2H Transaction Error: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'An internal error occurred while processing your request.',
+            ], 500);
         }
     }
 }
