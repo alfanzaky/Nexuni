@@ -24,8 +24,8 @@ class InternalCallbackController extends Controller
             return response()->json(['error' => 'Internal Server Error'], 500);
         }
 
-        $token = $request->header('X-Internal-Token');
-        if ($token !== $expectedToken) {
+        $token = $request->header('X-Internal-Token', '');
+        if (!hash_equals($expectedToken, $token)) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
