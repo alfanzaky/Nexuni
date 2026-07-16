@@ -32,7 +32,8 @@ class CreatePartnerTest extends TestCase
 
         // Assert Wallet created for user
         $this->assertTrue($partner->user->wallet()->exists());
-        $this->assertEquals(0, $partner->user->wallet->balance);
+        $this->assertEquals(0, $partner->user->wallet->available_balance);
+        $this->assertEquals(0, $partner->user->wallet->held_balance);
 
         $this->assertDatabaseHas('partners', [
             'name' => 'Test Partner',
