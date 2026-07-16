@@ -25,14 +25,16 @@ class CreatePartner
     {
         return DB::transaction(function () use ($data) {
             // 1. Check or Create User for the Partner
-            $user = User::firstOrCreate(
-                ['email' => $data['email']],
-                [
-                    'name' => $data['name'],
-                    'phone' => $data['phone'],
-                    'password' => $data['password'] ?? Str::random(12),
-                ]
-            );
+            $user = User::firstOrNew(['email' => $data['email']]);
+            $user->name = $data['name'];
+            $user->phone = $data['phone'];
+            $user->role = 'partner'; // Ensure the user has the correct role
+            
+            // Only set/overwrite password if creating a new user, or if explicitly provided
+            if (! $user->exists || isset($data['password'])) {
+                $user->password = $data['password'] ?? Str::random(12);
+            }
+            $user->save();
 
             // 2. Ensure User has a wallet (Wallet should be created usually, but we handle it just in case)
             if (! $user->wallet()->exists()) {
