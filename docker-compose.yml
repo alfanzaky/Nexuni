@@ -17,10 +17,23 @@ services:
     image: redis:7-alpine
     container_name: nexuni_redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: nexuni_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: nexuni_core
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
 volumes:
   rabbitmq_data:
   redis_data:
+  postgres_data:

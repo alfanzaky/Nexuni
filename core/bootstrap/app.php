@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\H2HAuthMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -23,6 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
         } elseif ($proxies) {
             $middleware->trustProxies(at: explode(',', $proxies));
         }
+
+        $middleware->alias([
+            'h2h_auth' => H2HAuthMiddleware::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
