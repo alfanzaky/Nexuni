@@ -2,8 +2,12 @@
 
 # Menjalankan Docker dependensi (RabbitMQ, Redis) di background
 up:
+	@if [ ! -f .env ]; then \
+		echo "Membuat file .env root dari .env.docker..."; \
+		cp .env.docker .env; \
+	fi
 	@echo "Menjalankan Docker container..."
-	docker compose --env-file .env.docker up -d
+	docker compose --env-file .env up -d
 
 # Menghentikan Docker dependensi
 down:
