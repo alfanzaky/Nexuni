@@ -18,35 +18,46 @@ class H2HAuthMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
+        $ipRateLimitKey = 'h2h_failed_auth_'.$request->ip();
+
+        // 0. Brute-Force Protection
+        if (RateLimiter::tooManyAttempts($ipRateLimitKey, 10)) {
+            $seconds = RateLimiter::availableIn($ipRateLimitKey);
+
+            return response()->json(['message' => 'Too Many Failed Attempts'], 429, [
+                'Retry-After' => $seconds,
+            ]);
+        }
+
         $apiKey = $request->header('X-API-Key');
         $signature = $request->header('X-Signature');
         $timestamp = $request->header('X-Timestamp');
         $nonce = $request->header('X-Nonce');
 
         if (! $apiKey || ! $signature || ! $timestamp || ! $nonce) {
-            return response()->json(['message' => 'Missing required security headers'], 401);
+            return $this->failAuth('Missing required security headers', $ipRateLimitKey);
         }
 
         // 1. Timestamp Validation (max 5 minutes age, no future timestamps)
         $requestTime = strtotime($timestamp);
         if (! $requestTime || abs(time() - $requestTime) > 300) {
-            return response()->json(['message' => 'Request expired or invalid timestamp'], 401);
+            return $this->failAuth('Request expired or invalid timestamp', $ipRateLimitKey);
         }
 
         // 2. Fast Nonce Validation (Replay Attack Prevention)
         $nonceKey = "h2h_nonce_{$apiKey}_{$nonce}";
         if (Cache::has($nonceKey)) {
-            return response()->json(['message' => 'Replay attack detected'], 401);
+            return $this->failAuth('Replay attack detected', $ipRateLimitKey);
         }
 
         // 3. API Key Validation
         $partner = Partner::where('api_key', $apiKey)->where('is_active', true)->first();
 
         if (! $partner) {
-            return response()->json(['message' => 'Invalid or inactive API Key'], 401);
+            return $this->failAuth('Invalid or inactive API Key', $ipRateLimitKey);
         }
 
-        // 4. Rate Limiting Check
+        // 4. Rate Limiting Check (Legitimate Partner Quota)
         $rateLimitKey = "h2h_rate_limit_{$partner->id}";
         if (RateLimiter::tooManyAttempts($rateLimitKey, $partner->rate_limit)) {
             $seconds = RateLimiter::availableIn($rateLimitKey);
@@ -65,14 +76,14 @@ class H2HAuthMiddleware
         $expectedSignature = hash_hmac('sha256', $stringToSign, $partner->api_secret);
 
         if (! hash_equals($expectedSignature, $signature)) {
-            return response()->json(['message' => 'Invalid Signature'], 401);
+            return $this->failAuth('Invalid Signature', $ipRateLimitKey);
         }
 
         // 6. Final Atomic Nonce Registration
         // This is done AFTER authentication to prevent unauthenticated attackers from exhausting nonces
         // on behalf of legitimate partners (Denial of Service).
         if (! Cache::add($nonceKey, true, now()->addMinutes(5))) {
-            return response()->json(['message' => 'Replay attack detected (concurrent)'], 401);
+            return $this->failAuth('Replay attack detected (concurrent)', $ipRateLimitKey);
         }
 
         // 7. Record Rate Limit Hit
@@ -80,9 +91,22 @@ class H2HAuthMiddleware
         // unauthenticated attackers from exhausting the partner's quota.
         RateLimiter::hit($rateLimitKey, 60); // Decay in 60 seconds (rate_limit requests per minute)
 
+        // Clear the failed attempts counter upon successful authentication
+        RateLimiter::clear($ipRateLimitKey);
+
         // Attach partner to request for controller use
         $request->attributes->set('partner', $partner);
 
         return $next($request);
+    }
+
+    /**
+     * Handle an authentication failure by recording it and returning a 401 response.
+     */
+    private function failAuth(string $message, string $ipRateLimitKey): Response
+    {
+        RateLimiter::hit($ipRateLimitKey, 60); // Decay in 60 seconds
+
+        return response()->json(['message' => $message], 401);
     }
 }
